@@ -436,21 +436,21 @@ def train_model(model, data_manager, n_epochs, lr, weight_decay=0.):
     :param lr: learning rate to be used for optimization
     :param weight_decay: parameter for l2 regularization
     """
-    optimizer = optim.Adam(params=model.parameters, lr=lr, weight_decay=weight_decay)
+    optimizer = optim.Adam(params=model.parameters,
+                           lr=lr, weight_decay=weight_decay)
     criterion = nn.BCEWithLogitsLoss()
     train_acc_arr = []
     train_loss_arr = []
-    
+
     val_acc_arr = []
     val_loss_arr = []
-    
 
     for epoch in range(n_epochs):
         avg_train_loss, avg_train_acc = train_epoch(
             model, data_manager.get_torch_iterator(data_subset=TRAIN), optimizer, criterion)
         train_acc_arr.append(avg_train_acc)
         train_loss_arr.append(avg_train_loss)
-        
+
         # Validation        TODO is the validation in the same epoch loop or another?
         avg_val_loss, avg_val_acc = train_epoch(
             model, data_manager.get_torch_iterator(data_subset=VAL), optimizer, criterion)
@@ -466,16 +466,15 @@ def train_log_linear_with_one_hot():
     """
     # get data
     data_manager = DataManager()
-    embedding_dimension = len(data_manager.sentiment_dataset.get_word_counts()) # number of distinct words in the corpus
+    # number of distinct words in the corpus
+    embedding_dimension = len(data_manager.sentiment_dataset.get_word_counts())
     log_linear_model = LogLinear(embedding_dim=embedding_dimension)
-    lr = 
-    weight_decay = 
-    results = train_model(log_linear_model, data_manager, lr=lr, weight_decay=weight_decay)
-
-
+    lr =
+    weight_decay =
+    results = train_model(log_linear_model, data_manager,
+                          lr=lr, weight_decay=weight_decay)
 
     return
-
 
 
 def train_log_linear_with_w2v():
