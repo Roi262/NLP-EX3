@@ -108,14 +108,19 @@ def create_or_load_slim_w2v(words_list, cache_w2v=False):
 
 def get_w2v_average(sent, word_to_vec, embedding_dim):
     """
-    This method gets a sentence and returns the average word embedding of the words consisting
+    This method gets a sentence and returns the average word embedding of the words that make up
     the sentence.
     :param sent: the sentence object
     :param word_to_vec: a dictionary mapping words to their vector embeddings
     :param embedding_dim: the dimension of the word embedding vectors
     :return The average embedding vector as numpy ndarray.
     """
-    return
+    avg = np.ndarray(embedding_dim)
+    for word in sent:
+        embedding = word_to_vec[word]
+        avg += embedding
+    avg = avg/len(sent)
+    return avg
 
 
 def get_one_hot(size, ind):
@@ -125,7 +130,9 @@ def get_one_hot(size, ind):
     :param ind: the entry index to turn to 1
     :return: numpy ndarray which represents the one-hot vector
     """
-    return
+    array = np.zeros(size)
+    array[ind] = 1
+    return array
 
 
 def average_one_hots(sent, word_to_ind):
@@ -136,7 +143,12 @@ def average_one_hots(sent, word_to_ind):
     :param word_to_ind: a mapping between words to indices
     :return:
     """
-    return
+    avg = np.zeros(len(word_to_ind))
+    for word in sent:
+        word_index = word_to_ind[word]
+        avg[word_index] += 1
+    avg = avg/len(sent)
+    return avg
 
 
 def get_word_to_ind(words_list):
@@ -146,7 +158,12 @@ def get_word_to_ind(words_list):
     :param words_list: a list of words
     :return: the dictionary mapping words to the index
     """
-    return
+    word_to_ind = {}
+    words_set = set(words_list)
+    # TODO do we regard upper/lower case letters?
+    for i in range(len(words_set)):
+        word_to_ind[words_list[i]] = i
+    return word_to_ind
 
 
 def sentence_to_embedding(sent, word_to_vec, seq_len, embedding_dim=300):
@@ -159,7 +176,11 @@ def sentence_to_embedding(sent, word_to_vec, seq_len, embedding_dim=300):
     :param embedding_dim: the dimension of the w2v embedding
     :return: numpy ndarray of shape (seq_len, embedding_dim) with the representation of the sentence
     """
-    return
+    embeddings = np.ndarray(shape=(seq_len, embedding_dim))
+    for i, token in enumerate(sent):
+        word_embedding = word_to_vec[token]
+        embeddings[i] = word_embedding
+    return embeddings
 
 
 class OnlineDataset(Dataset):
@@ -205,7 +226,8 @@ class DataManager():
         """
 
         # load the dataset
-        self.sentiment_dataset = data_loader.SentimentTreeBank(dataset_path, split_words=True)
+        self.sentiment_dataset = data_loader.SentimentTreeBank(
+            dataset_path, split_words=True)
         # map data splits to sentences lists
         self.sentences = {}
         if use_sub_phrases:
@@ -220,7 +242,8 @@ class DataManager():
         words_list = list(self.sentiment_dataset.get_word_counts().keys())
         if data_type == ONEHOT_AVERAGE:
             self.sent_func = average_one_hots
-            self.sent_func_kwargs = {"word_to_ind": get_word_to_ind(words_list)}
+            self.sent_func_kwargs = {
+                "word_to_ind": get_word_to_ind(words_list)}
         elif data_type == W2V_SEQUENCE:
             self.sent_func = sentence_to_embedding
 
@@ -264,14 +287,13 @@ class DataManager():
         return self.torch_datasets[TRAIN][0][0].shape
 
 
-
-
 # ------------------------------------ Models ----------------------------------------------------
 
 class LSTM(nn.Module):
     """
     An LSTM for sentiment analysis with architecture as described in the exercise description.
     """
+
     def __init__(self, embedding_dim, hidden_dim, n_layers, dropout):
         return
 
@@ -286,6 +308,7 @@ class LogLinear(nn.Module):
     """
     general class for the log-linear models for sentiment analysis.
     """
+
     def __init__(self, embedding_dim):
         return
 
