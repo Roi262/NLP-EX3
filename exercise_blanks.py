@@ -355,18 +355,20 @@ def train_epoch(model, data_iterator, optimizer, criterion):
     :param optimizer: the optimizer object for the training process.
     :param criterion: the criterion object for the training process.
     """
-    # learner = LogLinear()
+    avg_loss = 0
+    avg_accuracy = 0
+    count = 0
     # loop over the dataset
     for x, y_label in data_iterator():
         y_pred = model(x)
         # compute the loss
         loss = criterion(y_pred, y_label)
-        # accuracy = 1 - loss TODO check how to CALCULATE ACCURACY (normalize?)
-
+        accuracy = binary_accuracy(y_pred, y_label)
         optimizer.zero_grad() # nullify gradients
         loss.backward()
         optimizer.step()
-    return
+        avg_loss += loss.item()
+        # TODO CONTINUE
 
 
 def evaluate(model, data_iterator, criterion):
@@ -377,7 +379,17 @@ def evaluate(model, data_iterator, criterion):
     :param criterion: the loss criterion used for evaluation
     :return: tuple of (average loss over all examples, average accuracy over all examples)
     """
-    return
+    # loop over the dataset
+    avg_loss = 0
+    avg_accuracy = 0
+    count = 0
+    for x, y_label in data_iterator():
+        y_pred = model(x)
+        # compute the loss
+        avg_loss += criterion(y_pred, y_label)
+        # avg_accuracy
+        count += 1
+    return (avg_loss, avg_accuracy)
 
 
 def get_predictions_for_data(model, data_iter):
