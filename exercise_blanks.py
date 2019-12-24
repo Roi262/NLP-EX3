@@ -10,6 +10,8 @@ import data_loader
 import pickle
 import tqdm
 
+# Pytorch TA: https://colab.research.google.com/drive/18JCEnRsTmd_eSEkJmuoYGy0m0iOv7GgM
+
 # ------------------------------------------- Constants ----------------------------------------
 
 SEQ_LEN = 52
@@ -310,13 +312,23 @@ class LogLinear(nn.Module):
     """
 
     def __init__(self, embedding_dim):
+        super().__init__() # Important to call Modules constructor!!
+        self.linear = nn.Linear(in_features=embedding_dim, out_features=1)
         return
 
     def forward(self, x):
-        return
+        """
+        Arguments:
+            x {[type]} -- the average one-hot embedding of the words in the sentence
+        
+        Returns:
+            [type] -- [description]
+        """
+        return self.linear(x)
 
     def predict(self, x):
-        return
+        x = self.forward(x)
+        return F.sigmoid(x)
 
 
 # ------------------------- training functions -------------
@@ -343,7 +355,17 @@ def train_epoch(model, data_iterator, optimizer, criterion):
     :param optimizer: the optimizer object for the training process.
     :param criterion: the criterion object for the training process.
     """
+    # learner = LogLinear()
+    # loop over the dataset
+    for x, y_label in data_iterator():
+        y_pred = model(x)
+        # compute the loss
+        loss = criterion(y_pred, y_label)
+        # accuracy = 1 - loss TODO check how to CALCULATE ACCURACY (normalize?)
 
+        optimizer.zero_grad() # nullify gradients
+        loss.backward()
+        optimizer.step()
     return
 
 
