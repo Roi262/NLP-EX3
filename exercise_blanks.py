@@ -312,7 +312,7 @@ class LogLinear(nn.Module):
     """
 
     def __init__(self, embedding_dim):
-        super().__init__() # Important to call Modules constructor!!
+        super().__init__()  # Important to call Modules constructor!!
         self.linear = nn.Linear(in_features=embedding_dim, out_features=1)
         return
 
@@ -320,7 +320,7 @@ class LogLinear(nn.Module):
         """
         Arguments:
             x {[type]} -- the average one-hot embedding of the words in the sentence
-        
+
         Returns:
             [type] -- [description]
         """
@@ -342,8 +342,8 @@ def binary_accuracy(preds, y):
     :param y: a vector of true labels
     :return: scalar value - (<number of accurate predictions> / <number of examples>)
     """
-
-    return
+    vec = int(preds == y)
+    return sum(vec)/len(vec)
 
 
 def train_epoch(model, data_iterator, optimizer, criterion):
@@ -356,19 +356,24 @@ def train_epoch(model, data_iterator, optimizer, criterion):
     :param criterion: the criterion object for the training process.
     """
     avg_loss = 0
-    avg_accuracy = 0
-    count = 0
+    y_predictions = []
+    y_labels = []
     # loop over the dataset
     for x, y_label in data_iterator():
-        y_pred = model(x)
+        y_pred = model.predict(x)
+        y_predictions.append(y_predictions)
+        y_labels.append(y_label)
         # compute the loss
         loss = criterion(y_pred, y_label)
-        accuracy = binary_accuracy(y_pred, y_label)
-        optimizer.zero_grad() # nullify gradients
+
+        optimizer.zero_grad()  # nullify gradients
         loss.backward()
         optimizer.step()
         avg_loss += loss.item()
-        # TODO CONTINUE
+
+    avg_accuracy = binary_accuracy(y_predictions, y_labels)
+    avg_loss = avg_loss/len(y_predictions)
+    return avg_loss, avg_accuracy
 
 
 def evaluate(model, data_iterator, criterion):
@@ -379,6 +384,22 @@ def evaluate(model, data_iterator, criterion):
     :param criterion: the loss criterion used for evaluation
     :return: tuple of (average loss over all examples, average accuracy over all examples)
     """
+    avg_loss = 0
+    y_predictions = []
+    y_labels = []
+    # loop over the dataset
+    for x, y_label in data_iterator():
+        y_pred = model.predict(x)
+        y_predictions.append(y_predictions)
+        y_labels.append(y_label)
+        # compute the loss
+        loss = criterion(y_pred, y_label)
+        avg_loss += loss.item()
+
+    avg_accuracy = binary_accuracy(y_predictions, y_labels)
+    avg_loss = avg_loss/len(y_predictions)
+    return avg_loss, avg_accuracy
+
     # loop over the dataset
     avg_loss = 0
     avg_accuracy = 0
@@ -389,7 +410,7 @@ def evaluate(model, data_iterator, criterion):
         avg_loss += criterion(y_pred, y_label)
         # avg_accuracy
         count += 1
-    return (avg_loss, avg_accuracy)
+    return (avg_loss/count, avg_accuracy/count)
 
 
 def get_predictions_for_data(model, data_iter):
@@ -415,14 +436,46 @@ def train_model(model, data_manager, n_epochs, lr, weight_decay=0.):
     :param lr: learning rate to be used for optimization
     :param weight_decay: parameter for l2 regularization
     """
-    return
+    optimizer = optim.Adam(params=model.parameters, lr=lr, weight_decay=weight_decay)
+    criterion = nn.BCEWithLogitsLoss()
+    train_acc_arr = []
+    train_loss_arr = []
+    
+    val_acc_arr = []
+    val_loss_arr = []
+    
+
+    for epoch in range(n_epochs):
+        avg_train_loss, avg_train_acc = train_epoch(
+            model, data_manager.get_torch_iterator(data_subset=TRAIN), optimizer, criterion)
+        train_acc_arr.append(avg_train_acc)
+        train_loss_arr.append(avg_train_loss)
+        
+        # Validation        TODO is the validation in the same epoch loop or another?
+        avg_val_loss, avg_val_acc = train_epoch(
+            model, data_manager.get_torch_iterator(data_subset=VAL), optimizer, criterion)
+        val_acc_arr.append(avg_val_acc)
+        val_loss_arr.append(avg_val_loss)
+
+    return train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr
 
 
 def train_log_linear_with_one_hot():
     """
     Here comes your code for training and evaluation of the log linear model with one hot representation.
     """
+    # get data
+    data_manager = DataManager()
+    embedding_dimension = len(data_manager.sentiment_dataset.get_word_counts()) # number of distinct words in the corpus
+    log_linear_model = LogLinear(embedding_dim=embedding_dimension)
+    lr = 
+    weight_decay = 
+    results = train_model(log_linear_model, data_manager, lr=lr, weight_decay=weight_decay)
+
+
+
     return
+
 
 
 def train_log_linear_with_w2v():
