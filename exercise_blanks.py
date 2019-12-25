@@ -10,6 +10,9 @@ import data_loader
 import pickle
 import tqdm
 
+# print(torch.__version__)
+
+
 # Pytorch TA: https://colab.research.google.com/drive/18JCEnRsTmd_eSEkJmuoYGy0m0iOv7GgM
 
 # ------------------------------------------- Constants ----------------------------------------
@@ -25,6 +28,7 @@ TRAIN = "train"
 VAL = "val"
 TEST = "test"
 
+NEG, POS, NEUTRAL, NEG_THRESH, POS_THRESH = 0., 1., -1., 0.4, 0.6
 
 # ------------------------------------------ Helper methods and classes --------------------------
 
@@ -146,10 +150,10 @@ def average_one_hots(sent, word_to_ind):
     :return:
     """
     avg = np.zeros(len(word_to_ind))
-    for word in sent:
+    for word in sent.text:
         word_index = word_to_ind[word]
         avg[word_index] += 1
-    avg = avg/len(sent)
+    avg = avg/len(sent.text)
     return avg
 
 
@@ -324,7 +328,7 @@ class LogLinear(nn.Module):
         Returns:
             [type] -- [description]
         """
-        return self.linear(x)
+        return self.linear(x.float())
 
     def predict(self, x):
         x = self.forward(x)
@@ -342,9 +346,26 @@ def binary_accuracy(preds, y):
     :param y: a vector of true labels
     :return: scalar value - (<number of accurate predictions> / <number of examples>)
     """
-    vec = int(preds == y)
+    vec = (preds == y)
     return sum(vec)/len(vec)
 
+def round_pred(pred_values):
+    """Rounds the prediction to NEG, POS, or NEUTRAL and returns that value
+    Arguments:
+        pred {float} -- one prediction
+    Returns:
+        [float] -- rounded prediction
+    """
+    rounded_predictions = [0] * pred_values.shape[0]
+    for i, val in enumerate(pred_values):
+        if val <= NEG_THRESH:
+            rounded_predictions[i] = NEG
+        elif val >= POS_THRESH:
+            rounded_predictions[i] = POS
+        else: 
+            rounded_predictions[i] = NEUTRAL
+
+    return torch.tensor(rounded_predictions)
 
 def train_epoch(model, data_iterator, optimizer, criterion):
     """
@@ -359,9 +380,11 @@ def train_epoch(model, data_iterator, optimizer, criterion):
     y_predictions = []
     y_labels = []
     # loop over the dataset
-    for x, y_label in data_iterator():
-        y_pred = model.predict(x)
-        y_predictions.append(y_predictions)
+    for x, y_label in data_iterator:
+        l=0    
+        y_pred = model.predict(x).reshape(y_label.shape)
+        y_pred = round_pred(y_pred)
+        y_predictions.append(y_pred)
         y_labels.append(y_label)
         # compute the loss
         loss = criterion(y_pred, y_label)
@@ -390,7 +413,8 @@ def evaluate(model, data_iterator, criterion):
     # loop over the dataset
     for x, y_label in data_iterator():
         y_pred = model.predict(x)
-        y_predictions.append(y_predictions)
+        y_pred = round_pred(y_pred)
+        y_predictions.append(y_pred)
         y_labels.append(y_label)
         # compute the loss
         loss = criterion(y_pred, y_label)
@@ -415,7 +439,6 @@ def evaluate(model, data_iterator, criterion):
 
 def get_predictions_for_data(model, data_iter):
     """
-
     This function should iterate over all batches of examples from data_iter and return all of the models
     predictions as a numpy ndarray or torch tensor (or list if you prefer). the prediction should be in the
     same order of the examples returned by data_iter.
@@ -423,7 +446,10 @@ def get_predictions_for_data(model, data_iter):
     :param data_iter: torch iterator as given by the DataManager
     :return:
     """
-    return
+    predictions = np.ndarray(len(data_iter))
+    for i, example in enumerate(data_iter):
+        predictions[i] = model.predict(example)
+    return predictions
 
 
 def train_model(model, data_manager, n_epochs, lr, weight_decay=0.):
@@ -436,7 +462,7 @@ def train_model(model, data_manager, n_epochs, lr, weight_decay=0.):
     :param lr: learning rate to be used for optimization
     :param weight_decay: parameter for l2 regularization
     """
-    optimizer = optim.Adam(params=model.parameters,
+    optimizer = optim.Adam(params=model.parameters(),
                            lr=lr, weight_decay=weight_decay)
     criterion = nn.BCEWithLogitsLoss()
     train_acc_arr = []
@@ -460,21 +486,18 @@ def train_model(model, data_manager, n_epochs, lr, weight_decay=0.):
     return train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr
 
 
-def train_log_linear_with_one_hot():
+def train_log_linear_with_one_hot(lr, n_epochs, weight_decay):
     """
-    Here comes your code for training and evaluation of the log linear model with one hot representation.
     """
     # get data
     data_manager = DataManager()
     # number of distinct words in the corpus
     embedding_dimension = len(data_manager.sentiment_dataset.get_word_counts())
     log_linear_model = LogLinear(embedding_dim=embedding_dimension)
-    lr =
-    weight_decay =
-    results = train_model(log_linear_model, data_manager,
+    results = train_model(model=log_linear_model, data_manager=data_manager, n_epochs=n_epochs,
                           lr=lr, weight_decay=weight_decay)
 
-    return
+    return results
 
 
 def train_log_linear_with_w2v():
@@ -491,8 +514,16 @@ def train_lstm_with_w2v():
     """
     return
 
+def main():
+    weight_decays = [0, 0.0001, 0.001]
+    lr1 = 0.01
+    train_log_linear_with_one_hot(lr=lr1, weight_decay=0, n_epochs=20)
 
-if __name__ == '__main__':
-    train_log_linear_with_one_hot()
+    # for wd in weight_decays:
+    #     train_log_linear_with_one_hot(lr=lr1, weight_decay=wd, n_epochs=20)
     # train_log_linear_with_w2v()
     # train_lstm_with_w2v()
+
+
+if __name__ == '__main__':
+    main()
