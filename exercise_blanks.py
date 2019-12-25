@@ -32,6 +32,7 @@ NEG, POS, NEUTRAL, NEG_THRESH, POS_THRESH = 0., 1., -1., 0.4, 0.6
 
 # ------------------------------------------ Helper methods and classes --------------------------
 
+
 def get_available_device():
     """
     Allows training on GPU if available. Can help with running things faster when a GPU with cuda is
@@ -332,7 +333,7 @@ class LogLinear(nn.Module):
 
     def predict(self, x):
         x = self.forward(x)
-        return F.sigmoid(x)
+        return torch.sigmoid(x)
 
 
 # ------------------------- training functions -------------
@@ -349,6 +350,7 @@ def binary_accuracy(preds, y):
     vec = (preds == y)
     return sum(vec)/len(vec)
 
+
 def round_pred(pred_values):
     """Rounds the prediction to NEG, POS, or NEUTRAL and returns that value
     Arguments:
@@ -362,10 +364,11 @@ def round_pred(pred_values):
             rounded_predictions[i] = NEG
         elif val >= POS_THRESH:
             rounded_predictions[i] = POS
-        else: 
+        else:
             rounded_predictions[i] = NEUTRAL
 
     return torch.tensor(rounded_predictions)
+
 
 def train_epoch(model, data_iterator, optimizer, criterion):
     """
@@ -381,15 +384,14 @@ def train_epoch(model, data_iterator, optimizer, criterion):
     y_labels = []
     # loop over the dataset
     for x, y_label in data_iterator:
-        l=0    
+        y_label = y_label.type(torch.float32)
+        optimizer.zero_grad()  # nullify gradients
         y_pred = model.predict(x).reshape(y_label.shape)
         y_pred = round_pred(y_pred)
         y_predictions.append(y_pred)
         y_labels.append(y_label)
         # compute the loss
         loss = criterion(y_pred, y_label)
-
-        optimizer.zero_grad()  # nullify gradients
         loss.backward()
         optimizer.step()
         avg_loss += loss.item()
@@ -472,8 +474,8 @@ def train_model(model, data_manager, n_epochs, lr, weight_decay=0.):
     val_loss_arr = []
 
     for epoch in range(n_epochs):
-        avg_train_loss, avg_train_acc = train_epoch(
-            model, data_manager.get_torch_iterator(data_subset=TRAIN), optimizer, criterion)
+        avg_train_loss, avg_train_acc = train_epoch(model=model, data_iterator=data_manager.get_torch_iterator(
+            data_subset=TRAIN), optimizer=optimizer, criterion=criterion)
         train_acc_arr.append(avg_train_acc)
         train_loss_arr.append(avg_train_loss)
 
@@ -490,7 +492,8 @@ def train_log_linear_with_one_hot(lr, n_epochs, weight_decay):
     """
     """
     # get data
-    data_manager = DataManager()
+    size = 64
+    data_manager = DataManager(batch_size=size)
     # number of distinct words in the corpus
     embedding_dimension = len(data_manager.sentiment_dataset.get_word_counts())
     log_linear_model = LogLinear(embedding_dim=embedding_dimension)
@@ -513,6 +516,7 @@ def train_lstm_with_w2v():
     Here comes your code for training and evaluation of the LSTM model.
     """
     return
+
 
 def main():
     weight_decays = [0, 0.0001, 0.001]
