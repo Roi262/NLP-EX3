@@ -420,34 +420,28 @@ def evaluate(model, data_iterator, criterion):
     :param criterion: the loss criterion used for evaluation
     :return: tuple of (average loss over all examples, average accuracy over all examples)
     """
-    avg_loss = 0
+    model.evaluate()
+    avg_loss = []
     y_predictions = []
-    y_labels = []
+    avg_acc = []
     # loop over the dataset
-    for x, y_label in data_iterator():
-        y_pred = model.predict(x)
-        y_pred = round_pred(y_pred)
-        y_predictions.append(y_pred)
-        y_labels.append(y_label)
-        # compute the loss
-        loss = criterion(y_pred, y_label)
-        avg_loss += loss.item()
+    for x, y_label in tqdm(data_iterator):
+        x = x.float()
+        y_label = y_label.reshape(len(y_label), 1).double()
+        y_forward = model(x)
+        #############################
+        y_p = model.predict(y_forward).double()
 
-    avg_accuracy = binary_accuracy(y_predictions, y_labels)
-    avg_loss = avg_loss/len(y_predictions)
-    return avg_loss, avg_accuracy
-
-    # loop over the dataset
-    avg_loss = 0
-    avg_accuracy = 0
-    count = 0
-    for x, y_label in data_iterator():
-        y_pred = model(x)
+        y_predictions.append(y_p)
         # compute the loss
-        avg_loss += criterion(y_pred, y_label)
-        # avg_accuracy
-        count += 1
-    return (avg_loss/count, avg_accuracy/count)
+        loss = criterion(y_p, y_label)
+        loss.backward()
+        avg_loss.append(loss.item())
+        avg_acc.append(binary_accuracy(round_pred(y_p), y_label))
+
+    epoch_acc = np.mean(avg_acc) #Not efficient but good for control.
+    epoch_loss = np.mean(avg_loss)
+    return epoch_loss, epoch_acc
 
 
 def get_predictions_for_data(model, data_iter):
@@ -475,6 +469,7 @@ def train_model(model, data_manager, n_epochs, lr, weight_decay=0.):
     :param lr: learning rate to be used for optimization
     :param weight_decay: parameter for l2 regularization
     """
+    model.train() # This is here because of the inverse function in evaluate.
     optimizer = optim.Adam(params=model.parameters(),
                            lr=lr, weight_decay=weight_decay)
     criterion = nn.BCEWithLogitsLoss()
@@ -496,7 +491,6 @@ def train_model(model, data_manager, n_epochs, lr, weight_decay=0.):
         val_acc_arr.append(avg_val_acc)
         val_loss_arr.append(avg_val_loss)
 
-
     return train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr
 
 
@@ -506,13 +500,17 @@ def train_log_linear_with_one_hot(lr, n_epochs, weight_decay):
     # get data
     size = 64
     data_manager = DataManager(batch_size=size)
-    # number of distinct words in the corpus
+    test_iterator = DataManager(batch_size=size).get_torch_iterator(data_subset=TEST)
+
     embedding_dimension = len(data_manager.sentiment_dataset.get_word_counts())
+
+    # number of distinct words in the corpus
     log_linear_model = LogLinear(embedding_dim=embedding_dimension)
     train_acc, train_loss, val_acc, val_loss = train_model(model=log_linear_model, data_manager=data_manager, n_epochs=n_epochs,
                           lr=lr, weight_decay=weight_decay)
-
-    return train_acc, train_loss, val_acc, val_loss
+    print("EVALUATE")
+    test_acc, test_loss = evaluate(model = log_linear_model, test_iterator, nn.BCEWithLogitsLoss())
+    return train_acc, train_loss, val_acc, val_loss, test_acc, test_loss
 
 
 def train_log_linear_with_w2v(lr, n_epochs, weight_decay):
@@ -520,16 +518,7 @@ def train_log_linear_with_w2v(lr, n_epochs, weight_decay):
     Here comes your code for training and evaluation of the log linear model with word embeddings
     representation.
     """
-    size = 64
-    data_manager = DataManager(batch_size=size, data_type= W2V_AVERAGE,
-                               embedding_dim= W2V_EMBEDDING_DIM)
-    # number of distinct words in the corpus
-    embedding_dimension = len(data_manager.sentiment_dataset.get_word_counts())
-    log_linear_w2v = LogLinear(embedding_dim=embedding_dimension)
-    train_acc, train_loss, val_acc, val_loss = train_model(model=log_linear_w2v, data_manager=data_manager, n_epochs=n_epochs,
-                          lr=lr, weight_decay=weight_decay)
-    return train_acc, train_loss, val_acc, val_loss
-
+    return
 
 def train_lstm_with_w2v():
     """
@@ -588,14 +577,16 @@ def Q1(lr, weights_array, n_epochs):
     """Plots graphs for accuracy and loss for each w_decay."""
     for w_dec in weights_array:
         print(w_dec)
-        train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr = train_log_linear_with_one_hot(lr=lr, weight_decay=w_dec,
+        train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr, eval_acc,eval_loss = train_log_linear_with_one_hot(
+            lr=lr, weight_decay=w_dec,
                                                                                                  n_epochs=n_epochs)
+
 
         plot_graphs("Log Linear", train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr, n_epochs, w_dec, lr)
 
 def main():
     weights_array = [0, 0.0001, 0.001]
-    n_epochs = 10
+    n_epochs = 4
     lr = 0.0001
     Q1(lr, weights_array, n_epochs)
 
