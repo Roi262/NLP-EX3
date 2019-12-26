@@ -16,6 +16,7 @@ from tqdm import tqdm
 from matplotlib import pyplot as plt
 from operator import add
 
+
 # print(torch.__version__)
 
 
@@ -129,10 +130,10 @@ def get_w2v_average(sent, word_to_vec, embedding_dim):
     :return The average embedding vector as numpy ndarray.
     """
     avg = np.ndarray(embedding_dim)
-    for word in sent:
+    for word in sent.text:
         embedding = word_to_vec[word]
         avg += embedding
-    avg = avg/len(sent)
+    avg = avg/len(sent.text)
     return avg
 
 
@@ -520,7 +521,7 @@ def train_log_linear_with_w2v(lr, n_epochs, weight_decay):
     data_manager = DataManager(batch_size=size, embedding_dim=W2V_EMBEDDING_DIM, data_type=W2V_AVERAGE)
     # test_iterator = DataManager(batch_size=size, embedding_dim=W2V_EMBEDDING_DIM).get_torch_iterator(data_subset=TEST)
 
-    embedding_dimension = len(data_manager.sentiment_dataset.get_word_counts())
+    # embedding_dimension = len(data_manager.sentiment_dataset.get_word_counts())
 
     # number of distinct words in the corpus
     log_linear_w2v = LogLinear(embedding_dim=W2V_EMBEDDING_DIM)
@@ -551,7 +552,7 @@ def plot_graphs(name_of_model, train_acc, train_loss, val_acc, val_loss, n_epoch
     :param val_loss
     """
 
-    dir_path = "plots/"
+    dir_path = ("plots") + os.sep
     w_decimal = str(w_decay).replace('.','')
     epoch_numbers = list(range(n_epochs))
     epoch_numbers = list(map(add, epoch_numbers,[1]*n_epochs))
@@ -606,7 +607,7 @@ def Q2(lr, weights_array, n_epochs):
 
 def main():
     weights_array = [0, 0.0001, 0.001]
-    n_epochs = 20
+    n_epochs = 3
     lr = 0.0001
     Q2(lr, weights_array, n_epochs)
 

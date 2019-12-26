@@ -5,3 +5,5 @@ stanfordSentimentTreebank.zip
 /venv
 .vscode
 __pycache__
+/plots
+extras.py
