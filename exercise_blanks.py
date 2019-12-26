@@ -5,6 +5,7 @@ import torch.optim as optim
 import numpy as np
 import os
 
+from decimal import Decimal
 from torch.autograd import Variable
 from torch.utils.data import DataLoader, TensorDataset, Dataset
 import operator
@@ -337,7 +338,7 @@ class LogLinear(nn.Module):
         return self.linear(x.float())
 
     def predict(self, x):
-        x = self.forward(x)
+        # x = self.forward(x) #Removed since we dont want to forward twice.
         return torch.sigmoid(x)
 
 
@@ -396,8 +397,11 @@ def train_epoch(model, data_iterator, optimizer, criterion):
         x = x.float()
         y_label = y_label.reshape(len(y_label), 1).double()
         optimizer.zero_grad()  # nullify gradients
-        y_pred = model.predict(x).reshape(y_label.shape)
-        y_pred = round_pred(y_pred).reshape(len(y_label), 1).double()
+        # y_pred = model.predict(x).reshape(y_label.shape)
+        # y_pred = round_pred(y_pred).reshape(len(y_label), 1).double()
+        y_forward = model.forward(x).reshape(len(y_label), 1).double()
+        # y_forward = round_pred(y_forward).reshape(len(y_label), 1).double()
+        y_pred = round_pred(model.predict(y_forward)).reshape(len(y_label), 1).double()
         y_predictions.append(y_pred)
         y_labels.append(y_label)
         # compute the loss
@@ -516,12 +520,20 @@ def train_log_linear_with_one_hot(lr, n_epochs, weight_decay):
     return train_acc, train_loss, val_acc, val_loss
 
 
-def train_log_linear_with_w2v():
+def train_log_linear_with_w2v(lr, n_epochs, weight_decay):
     """
     Here comes your code for training and evaluation of the log linear model with word embeddings
     representation.
     """
-    return
+    size = 64
+    data_manager = DataManager(batch_size=size, data_type= W2V_AVERAGE,
+                               embedding_dim= W2V_EMBEDDING_DIM)
+    # number of distinct words in the corpus
+    embedding_dimension = len(data_manager.sentiment_dataset.get_word_counts())
+    log_linear_w2v = LogLinear(embedding_dim=embedding_dimension)
+    train_acc, train_loss, val_acc, val_loss = train_model(model=log_linear_w2v, data_manager=data_manager, n_epochs=n_epochs,
+                          lr=lr, weight_decay=weight_decay)
+    return train_acc, train_loss, val_acc, val_loss
 
 
 def train_lstm_with_w2v():
@@ -543,11 +555,16 @@ def plot_graphs(name_of_model, train_acc, train_loss, val_acc, val_loss, n_epoch
     :param val_acc
     :param val_loss
     """
+
+    dir_path = "plots/"
+    w_decimal = str(w_decay).replace('.','')
     epoch_numbers = list(range(n_epochs))
     epoch_numbers = list(map(add, epoch_numbers,[1]*n_epochs))
 
     plt.title(name_of_model +" Model Accuracy\n"
-                             "Decay weight="+str(w_decay)+", Learning rate="+str(lr))
+                             "Decay weight="+str(w_decay)+", Learning "
+                                                          "rate="+str(lr)+
+              ".png")
     plt.plot(epoch_numbers,train_acc, label = "Train Accuracy")
     plt.plot(epoch_numbers,val_acc, label = "Validation Accuracy")
     plt.xticks(epoch_numbers)
@@ -555,7 +572,9 @@ def plot_graphs(name_of_model, train_acc, train_loss, val_acc, val_loss, n_epoch
     plt.ylabel("Accuracy rates")
     plt.legend()
     plt.grid()
-    plt.show()
+    plt.savefig(dir_path + name_of_model + "_acc_w="+ str(w_decimal))
+    plt.clf() # clears the plot
+    # plt.show()
 
     plt.title(name_of_model +" Model Loss\n"
                              "Decay weight="+str(w_decay)+", Learning rate="+str(lr))
@@ -566,17 +585,24 @@ def plot_graphs(name_of_model, train_acc, train_loss, val_acc, val_loss, n_epoch
     plt.ylabel("Loss rates")
     plt.legend()
     plt.grid()
-    plt.show()
+    plt.savefig(dir_path + name_of_model + "_loss_w="+ str(w_decimal))
+    plt.clf() # clears the plot
+    # plt.show()
 
+
+def Q1(lr, weights_array, n_epochs):
+    """Plots graphs for accuracy and loss for each w_decay."""
+    for w_dec in weights_array:
+        print(w_dec)
+        train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr = train_log_linear_with_one_hot(lr=lr, weight_decay=w_dec,
+                                                                                                 n_epochs=n_epochs)
+        plot_graphs("Log Linear", train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr, n_epochs, w_dec, lr)
 
 def main():
-    weight_decays = [0, 0.0001, 0.001]
-    n_epochs = 7
-    w_dec = 0
-    lr1 = 0.01
-    train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr = train_log_linear_with_one_hot(lr=lr1, weight_decay=w_dec,
-                                                                                           n_epochs=n_epochs)
-    plot_graphs("Log Linear",train_acc_arr,train_loss_arr,val_acc_arr,val_loss_arr, n_epochs, w_dec,lr1)
+    weights_array = [0, 0.0001, 0.001]
+    n_epochs = 10
+    lr = 0.0001
+    Q1(lr, weights_array, n_epochs)
 
     # for wd in weight_decays:
     #     train_log_linear_with_one_hot(lr=lr1, weight_decay=wd, n_epochs=20)
