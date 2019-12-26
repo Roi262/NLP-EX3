@@ -4,11 +4,16 @@ import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
 import os
+
+from torch.autograd import Variable
 from torch.utils.data import DataLoader, TensorDataset, Dataset
 import operator
 import data_loader
 import pickle
 import tqdm
+from tqdm import tqdm
+from matplotlib import pyplot as plt
+from operator import add
 
 # print(torch.__version__)
 
@@ -348,7 +353,7 @@ def binary_accuracy(preds, y):
     :return: scalar value - (<number of accurate predictions> / <number of examples>)
     """
     vec = (preds == y)
-    return sum(vec)/len(vec)
+    return float(sum(vec))/float(len(vec))
 
 
 def round_pred(pred_values):
@@ -358,14 +363,15 @@ def round_pred(pred_values):
     Returns:
         [float] -- rounded prediction
     """
-    rounded_predictions = [0] * pred_values.shape[0]
-    for i, val in enumerate(pred_values):
-        if val <= NEG_THRESH:
-            rounded_predictions[i] = NEG
-        elif val >= POS_THRESH:
-            rounded_predictions[i] = POS
-        else:
-            rounded_predictions[i] = NEUTRAL
+    # rounded_predictions = [0] * pred_values.shape[0]
+    # for i, val in enumerate(pred_values):
+    #     if val <= NEG_THRESH:
+    #         rounded_predictions[i] = NEG
+    #     elif val >= POS_THRESH:
+    #         rounded_predictions[i] = POS
+    #     else:
+    #         rounded_predictions[i] = NEUTRAL
+    rounded_predictions = pred_values>0.5
 
     return torch.tensor(rounded_predictions)
 
@@ -379,26 +385,32 @@ def train_epoch(model, data_iterator, optimizer, criterion):
     :param optimizer: the optimizer object for the training process.
     :param criterion: the criterion object for the training process.
     """
-    avg_loss = 0
+    avg_loss = []
     y_predictions = []
     y_labels = []
+    avg_acc = []
+    batch_size = 0
     # loop over the dataset
-    for x, y_label in data_iterator:
-        y_label = y_label.type(torch.float32)
+    for x, y_label in tqdm(data_iterator):
+        batch_size+=1
+        x = x.float()
+        y_label = y_label.reshape(len(y_label), 1).double()
         optimizer.zero_grad()  # nullify gradients
         y_pred = model.predict(x).reshape(y_label.shape)
-        y_pred = round_pred(y_pred)
+        y_pred = round_pred(y_pred).reshape(len(y_label), 1).double()
         y_predictions.append(y_pred)
         y_labels.append(y_label)
         # compute the loss
         loss = criterion(y_pred, y_label)
+        avg_loss.append(loss.item())
+        loss = Variable(loss, requires_grad = True)
         loss.backward()
         optimizer.step()
-        avg_loss += loss.item()
+        avg_acc.append(binary_accuracy(y_pred, y_label))
 
-    avg_accuracy = binary_accuracy(y_predictions, y_labels)
-    avg_loss = avg_loss/len(y_predictions)
-    return avg_loss, avg_accuracy
+    epoch_acc = np.mean(avg_acc) #Not efficient but good for control.
+    epoch_loss = np.mean(avg_loss)
+    return epoch_loss, epoch_acc
 
 
 def evaluate(model, data_iterator, criterion):
@@ -473,7 +485,7 @@ def train_model(model, data_manager, n_epochs, lr, weight_decay=0.):
     val_acc_arr = []
     val_loss_arr = []
 
-    for epoch in range(n_epochs):
+    for epoch in (range(n_epochs)):
         avg_train_loss, avg_train_acc = train_epoch(model=model, data_iterator=data_manager.get_torch_iterator(
             data_subset=TRAIN), optimizer=optimizer, criterion=criterion)
         train_acc_arr.append(avg_train_acc)
@@ -484,6 +496,7 @@ def train_model(model, data_manager, n_epochs, lr, weight_decay=0.):
             model, data_manager.get_torch_iterator(data_subset=VAL), optimizer, criterion)
         val_acc_arr.append(avg_val_acc)
         val_loss_arr.append(avg_val_loss)
+
 
     return train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr
 
@@ -497,10 +510,10 @@ def train_log_linear_with_one_hot(lr, n_epochs, weight_decay):
     # number of distinct words in the corpus
     embedding_dimension = len(data_manager.sentiment_dataset.get_word_counts())
     log_linear_model = LogLinear(embedding_dim=embedding_dimension)
-    results = train_model(model=log_linear_model, data_manager=data_manager, n_epochs=n_epochs,
+    train_acc, train_loss, val_acc, val_loss = train_model(model=log_linear_model, data_manager=data_manager, n_epochs=n_epochs,
                           lr=lr, weight_decay=weight_decay)
 
-    return results
+    return train_acc, train_loss, val_acc, val_loss
 
 
 def train_log_linear_with_w2v():
@@ -517,11 +530,53 @@ def train_lstm_with_w2v():
     """
     return
 
+def plot_graphs(name_of_model, train_acc, train_loss, val_acc, val_loss, n_epochs, w_decay, lr):
+    """
+    Plot Accuracy and Loss graphs.
+    :param name_of_model:
+    :param n_epochs: Number of epochs
+    :param w_decay: weight decay
+    :param lr: Learning rate
+    All of the followings are arrays, with dimention of n_epochs.
+    :param train_acc
+    :param train_loss
+    :param val_acc
+    :param val_loss
+    """
+    epoch_numbers = list(range(n_epochs))
+    epoch_numbers = list(map(add, epoch_numbers,[1]*n_epochs))
+
+    plt.title(name_of_model +" Model Accuracy\n"
+                             "Decay weight="+str(w_decay)+", Learning rate="+str(lr))
+    plt.plot(epoch_numbers,train_acc, label = "Train Accuracy")
+    plt.plot(epoch_numbers,val_acc, label = "Validation Accuracy")
+    plt.xticks(epoch_numbers)
+    plt.xlabel("Epoch number")
+    plt.ylabel("Accuracy rates")
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+    plt.title(name_of_model +" Model Loss\n"
+                             "Decay weight="+str(w_decay)+", Learning rate="+str(lr))
+    plt.plot(epoch_numbers,train_loss, label = "Train Loss")
+    plt.plot(epoch_numbers,val_loss, label = "Validation Loss")
+    plt.xticks(epoch_numbers)
+    plt.xlabel("Epoch number")
+    plt.ylabel("Loss rates")
+    plt.legend()
+    plt.grid()
+    plt.show()
+
 
 def main():
     weight_decays = [0, 0.0001, 0.001]
+    n_epochs = 7
+    w_dec = 0
     lr1 = 0.01
-    train_log_linear_with_one_hot(lr=lr1, weight_decay=0, n_epochs=20)
+    train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr = train_log_linear_with_one_hot(lr=lr1, weight_decay=w_dec,
+                                                                                           n_epochs=n_epochs)
+    plot_graphs("Log Linear",train_acc_arr,train_loss_arr,val_acc_arr,val_loss_arr, n_epochs, w_dec,lr1)
 
     # for wd in weight_decays:
     #     train_log_linear_with_one_hot(lr=lr1, weight_decay=wd, n_epochs=20)
