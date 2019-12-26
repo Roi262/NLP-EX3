@@ -1,5 +1,7 @@
 ex3_description.pdf
 /stanfordSentimentTreebank
+stanfordSentimentTreebank.zip
+.idea/
 /venv
 .vscode
 __pycache__

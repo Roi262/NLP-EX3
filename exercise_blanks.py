@@ -374,7 +374,8 @@ def round_pred(pred_values):
     #         rounded_predictions[i] = NEUTRAL
     rounded_predictions = pred_values>0.5
 
-    return torch.tensor(rounded_predictions)
+    return torch.tensor(rounded_predictions).type(torch.int)
+
 
 
 def train_epoch(model, data_iterator, optimizer, criterion):
@@ -388,29 +389,23 @@ def train_epoch(model, data_iterator, optimizer, criterion):
     """
     avg_loss = []
     y_predictions = []
-    y_labels = []
     avg_acc = []
-    batch_size = 0
     # loop over the dataset
     for x, y_label in tqdm(data_iterator):
-        batch_size+=1
         x = x.float()
         y_label = y_label.reshape(len(y_label), 1).double()
-        optimizer.zero_grad()  # nullify gradients
-        # y_pred = model.predict(x).reshape(y_label.shape)
-        # y_pred = round_pred(y_pred).reshape(len(y_label), 1).double()
-        y_forward = model.forward(x).reshape(len(y_label), 1).double()
-        # y_forward = round_pred(y_forward).reshape(len(y_label), 1).double()
-        y_pred = round_pred(model.predict(y_forward)).reshape(len(y_label), 1).double()
-        y_predictions.append(y_pred)
-        y_labels.append(y_label)
+        y_forward = model(x)
+        #############################
+        y_p = model.predict(y_forward).double()
+
+        y_predictions.append(y_p)
         # compute the loss
-        loss = criterion(y_pred, y_label)
-        avg_loss.append(loss.item())
-        loss = Variable(loss, requires_grad = True)
+        loss = criterion(y_p, y_label)
         loss.backward()
         optimizer.step()
-        avg_acc.append(binary_accuracy(y_pred, y_label))
+        optimizer.zero_grad()  # nullify gradients
+        avg_loss.append(loss.item())
+        avg_acc.append(binary_accuracy(round_pred(y_p), y_label))
 
     epoch_acc = np.mean(avg_acc) #Not efficient but good for control.
     epoch_loss = np.mean(avg_loss)
@@ -563,8 +558,7 @@ def plot_graphs(name_of_model, train_acc, train_loss, val_acc, val_loss, n_epoch
 
     plt.title(name_of_model +" Model Accuracy\n"
                              "Decay weight="+str(w_decay)+", Learning "
-                                                          "rate="+str(lr)+
-              ".png")
+                                                          "rate="+str(lr))
     plt.plot(epoch_numbers,train_acc, label = "Train Accuracy")
     plt.plot(epoch_numbers,val_acc, label = "Validation Accuracy")
     plt.xticks(epoch_numbers)
@@ -596,6 +590,7 @@ def Q1(lr, weights_array, n_epochs):
         print(w_dec)
         train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr = train_log_linear_with_one_hot(lr=lr, weight_decay=w_dec,
                                                                                                  n_epochs=n_epochs)
+
         plot_graphs("Log Linear", train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr, n_epochs, w_dec, lr)
 
 def main():
