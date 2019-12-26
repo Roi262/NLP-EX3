@@ -172,9 +172,9 @@ def get_word_to_ind(words_list):
     :return: the dictionary mapping words to the index
     """
     word_to_ind = {}
-    words_set = set(words_list)
+    # words_set = set(words_list)
     # TODO do we regard upper/lower case letters?
-    for i in range(len(words_set)):
+    for i in range(len(words_list)):
         word_to_ind[words_list[i]] = i
     return word_to_ind
 
@@ -400,7 +400,7 @@ def train_epoch(model, data_iterator, optimizer, criterion):
 
         y_predictions.append(y_p)
         # compute the loss
-        loss = criterion(y_p, y_label)
+        loss = criterion(y_forward, y_label) #CRITERION USES SIGMOID
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()  # nullify gradients
@@ -478,10 +478,9 @@ def train_model(model, data_manager, n_epochs, lr, weight_decay=0.):
 
     val_acc_arr = []
     val_loss_arr = []
-
+    iterator = data_manager.get_torch_iterator(data_subset=TRAIN)
     for epoch in (range(n_epochs)):
-        avg_train_loss, avg_train_acc = train_epoch(model=model, data_iterator=data_manager.get_torch_iterator(
-            data_subset=TRAIN), optimizer=optimizer, criterion=criterion)
+        avg_train_loss, avg_train_acc = train_epoch(model=model, data_iterator=iterator, optimizer=optimizer, criterion=criterion)
         train_acc_arr.append(avg_train_acc)
         train_loss_arr.append(avg_train_loss)
 
@@ -500,7 +499,7 @@ def train_log_linear_with_one_hot(lr, n_epochs, weight_decay):
     # get data
     size = 64
     data_manager = DataManager(batch_size=size)
-    test_iterator = DataManager(batch_size=size).get_torch_iterator(data_subset=TEST)
+    # test_iterator = DataManager(batch_size=size).get_torch_iterator(data_subset=TEST)
 
     embedding_dimension = len(data_manager.sentiment_dataset.get_word_counts())
 
@@ -508,17 +507,29 @@ def train_log_linear_with_one_hot(lr, n_epochs, weight_decay):
     log_linear_model = LogLinear(embedding_dim=embedding_dimension)
     train_acc, train_loss, val_acc, val_loss = train_model(model=log_linear_model, data_manager=data_manager, n_epochs=n_epochs,
                           lr=lr, weight_decay=weight_decay)
-    print("EVALUATE")
-    test_acc, test_loss = evaluate(model = log_linear_model, test_iterator, nn.BCEWithLogitsLoss())
-    return train_acc, train_loss, val_acc, val_loss, test_acc, test_loss
+    # print("EVALUATE")
+    # test_acc, test_loss = evaluate(log_linear_model, test_iterator, nn.BCEWithLogitsLoss())
+    return train_acc, train_loss, val_acc, val_loss
 
 
 def train_log_linear_with_w2v(lr, n_epochs, weight_decay):
     """
-    Here comes your code for training and evaluation of the log linear model with word embeddings
-    representation.
     """
-    return
+    # get data
+    size = 64
+    data_manager = DataManager(batch_size=size, embedding_dim=W2V_EMBEDDING_DIM, data_type=W2V_AVERAGE)
+    # test_iterator = DataManager(batch_size=size, embedding_dim=W2V_EMBEDDING_DIM).get_torch_iterator(data_subset=TEST)
+
+    embedding_dimension = len(data_manager.sentiment_dataset.get_word_counts())
+
+    # number of distinct words in the corpus
+    log_linear_w2v = LogLinear(embedding_dim=W2V_EMBEDDING_DIM)
+    train_acc, train_loss, val_acc, val_loss = train_model(model=log_linear_w2v, data_manager=data_manager, n_epochs=n_epochs,
+                                                           lr=lr, weight_decay=weight_decay)
+    # print("EVALUATE")
+    # test_acc, test_loss = evaluate(log_linear_model, test_iterator, nn.BCEWithLogitsLoss())
+    return train_acc, train_loss, val_acc, val_loss
+
 
 def train_lstm_with_w2v():
     """
@@ -526,7 +537,7 @@ def train_lstm_with_w2v():
     """
     return
 
-def plot_graphs(name_of_model, train_acc, train_loss, val_acc, val_loss, n_epochs, w_decay, lr):
+def plot_graphs(name_of_model, train_acc, train_loss, val_acc, val_loss, n_epochs, w_decay, lr, Q):
     """
     Plot Accuracy and Loss graphs.
     :param name_of_model:
@@ -544,6 +555,7 @@ def plot_graphs(name_of_model, train_acc, train_loss, val_acc, val_loss, n_epoch
     w_decimal = str(w_decay).replace('.','')
     epoch_numbers = list(range(n_epochs))
     epoch_numbers = list(map(add, epoch_numbers,[1]*n_epochs))
+    print(train_acc)
 
     plt.title(name_of_model +" Model Accuracy\n"
                              "Decay weight="+str(w_decay)+", Learning "
@@ -560,7 +572,7 @@ def plot_graphs(name_of_model, train_acc, train_loss, val_acc, val_loss, n_epoch
     # plt.show()
 
     plt.title(name_of_model +" Model Loss\n"
-                             "Decay weight="+str(w_decay)+", Learning rate="+str(lr))
+                             "Decay weight="+str(w_decay)+", Learning rate="+str(lr)+" "+Q)
     plt.plot(epoch_numbers,train_loss, label = "Train Loss")
     plt.plot(epoch_numbers,val_loss, label = "Validation Loss")
     plt.xticks(epoch_numbers)
@@ -568,7 +580,7 @@ def plot_graphs(name_of_model, train_acc, train_loss, val_acc, val_loss, n_epoch
     plt.ylabel("Loss rates")
     plt.legend()
     plt.grid()
-    plt.savefig(dir_path + name_of_model + "_loss_w="+ str(w_decimal))
+    plt.savefig(dir_path + name_of_model + "_loss_w="+ str(w_decimal)+" "+Q)
     plt.clf() # clears the plot
     # plt.show()
 
@@ -576,19 +588,27 @@ def plot_graphs(name_of_model, train_acc, train_loss, val_acc, val_loss, n_epoch
 def Q1(lr, weights_array, n_epochs):
     """Plots graphs for accuracy and loss for each w_decay."""
     for w_dec in weights_array:
-        print(w_dec)
-        train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr, eval_acc,eval_loss = train_log_linear_with_one_hot(
-            lr=lr, weight_decay=w_dec,
+        print(str(w_dec)+" Q1")
+        train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr = train_log_linear_with_one_hot(lr=lr,
+                                                                                               weight_decay=w_dec,
                                                                                                  n_epochs=n_epochs)
 
+        plot_graphs("Log Linear with ONEHOT", train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr, n_epochs, w_dec,
+                    lr, "Q2")
 
-        plot_graphs("Log Linear", train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr, n_epochs, w_dec, lr)
+def Q2(lr, weights_array, n_epochs):
+    for w_dec in weights_array:
+        print(str(w_dec) + " Q2")
+        train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr = train_log_linear_with_w2v(
+            lr=lr, weight_decay=w_dec, n_epochs=n_epochs)
+        plot_graphs("Log Linear with W2V", train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr, n_epochs, w_dec, lr,
+                "Q2")
 
 def main():
     weights_array = [0, 0.0001, 0.001]
-    n_epochs = 4
+    n_epochs = 20
     lr = 0.0001
-    Q1(lr, weights_array, n_epochs)
+    Q2(lr, weights_array, n_epochs)
 
     # for wd in weight_decays:
     #     train_log_linear_with_one_hot(lr=lr1, weight_decay=wd, n_epochs=20)
