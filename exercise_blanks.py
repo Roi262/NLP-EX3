@@ -95,6 +95,7 @@ def load_word2vec():
             wv_from_bin: All 3 million embeddings, each lengh 300
     """
     import gensim.downloader as api
+    # wv_from_bin = create_or_load_slim_w2v
     wv_from_bin = api.load("word2vec-google-news-300")
     vocab = list(wv_from_bin.vocab.keys())
     print(wv_from_bin.vocab[vocab[0]])
@@ -262,13 +263,13 @@ class DataManager():
             self.sent_func = sentence_to_embedding
 
             self.sent_func_kwargs = {"seq_len": SEQ_LEN,
-                                     "word_to_vec": create_or_load_slim_w2v(words_list),
+                                     "word_to_vec": create_or_load_slim_w2v(words_list, True),
                                      "embedding_dim": embedding_dim
                                      }
         elif data_type == W2V_AVERAGE:
             self.sent_func = get_w2v_average
             words_list = list(self.sentiment_dataset.get_word_counts().keys())
-            self.sent_func_kwargs = {"word_to_vec": create_or_load_slim_w2v(words_list),
+            self.sent_func_kwargs = {"word_to_vec": create_or_load_slim_w2v(words_list, True),
                                      "embedding_dim": embedding_dim
                                      }
         else:

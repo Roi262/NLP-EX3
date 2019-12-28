@@ -7,3 +7,4 @@ stanfordSentimentTreebank.zip
 __pycache__
 /plots
 extras.py
+w2v_dict.pkl
