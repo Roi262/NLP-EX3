@@ -27,6 +27,8 @@ from operator import add
 SEQ_LEN = 52
 W2V_EMBEDDING_DIM = 300
 LSTM_BIDIRECTIONAL = True
+HIDDEN_DIM = 100
+DROP_PROB = 0.5
 
 ONEHOT_AVERAGE = "onehot_average"
 W2V_AVERAGE = "w2v_average"
@@ -193,9 +195,16 @@ def sentence_to_embedding(sent, word_to_vec, seq_len, embedding_dim=300):
     :return: numpy ndarray of shape (seq_len, embedding_dim) with the representation of the sentence
     """
     embeddings = np.ndarray(shape=(seq_len, embedding_dim))
-    for i, token in enumerate(sent):
-        word_embedding = word_to_vec[token]
-        embeddings[i] = word_embedding
+    sent_list = sent.text
+    if len(sent_list) < seq_len:
+        for i, word in enumerate(sent_list):
+            embeddings[i] = word_to_vec[word]
+        # pad the rest with zero embeddings
+        for i in range(seq_len - len(sent_list)):
+            embeddings[i] = np.zeros(embedding_dim)
+    else: # i.e., sent_list >= seq_len
+        for i in range(seq_len):
+            embeddings[i] = word_to_vec[sent_list[i]]
     return embeddings
 
 
@@ -310,54 +319,87 @@ class LSTM(nn.Module):
     An LSTM for sentiment analysis with architecture as described in the exercise description.
     """
 
-    def __init__(self, embedding_dim, hidden_dim, n_layers, drop_prob=.5):
-        # self.dropout = nn.Dropout(drop_prob)
-        self.lstm = nn.LSTM(input_size=embedding_dim, hidden_size=hidden_dim,
-                            num_layers=n_layers, dropout=drop_prob, bidirectional=LSTM_BIDIRECTIONAL)
-
+    def __init__(self, embedding_dim, n_layers, word_to_vec, hidden_dim=HIDDEN_DIM, drop_prob=DROP_PROB):
+        """
+        Arguments:
+            embedding_dim {[type]} -- [description]
+            n_layers {[type]} -- [description]
+            word_to_vec {[dict]} -- We added this as input for ease of use
+        
+        Keyword Arguments:
+            hidden_dim {[type]} -- [description] (default: {HIDDEN_DIM})
+            drop_prob {[type]} -- [description] (default: {DROP_PROB})
+        """
+        self.embedding_dim = embedding_dim
+        self.hidden_dim = hidden_dim
+        self.n_layers = n_layers
+        self.dropout = nn.Dropout(drop_prob) 
+        self.word_to_vec = word_to_vec
+        self.lstm = nn.LSTM(input_size=self.embedding_dim, hidden_size=self.hidden_dim,
+                            num_layers=self.n_layers, dropout=drop_prob, bidirectional=LSTM_BIDIRECTIONAL)
+        # each LSTM cell will receive as input the Word2Vec embedding of a word in the input sentence
+        # self.embedding = sentence_to_embedding
+        self.linear = nn.Linear(in_features=embedding_dim, out_features=1)
+        # self.hidden
         return
 
     def forward(self, text):
-        return
+        """First, get the embeddings for the words in the text. then forward through lstm
+        Arguments:
+            text {[type]} -- A sentence (?)
+        Returns:
+            [type] -- [description]
+        """
+        # embeddings = self.embedding(sent=text, word_to_vec=self.word_to_vec, seq_len=len(text), embedding_dim=self.embedding_dim)
+        output, (h_n, c_n) = self.lstm(text)
+        h_s_1 = output[-1, :, :self.hidden_dim]
+        h_s_2 = output[0, :, self.hidden_dim:]
+        # concatenate the two hidden states
+        output = h_s_1 + h_s_2
+        # use dropout regularization of concatenated layers as input to the linear layer
+        return self.linear(self.dropout(output))
 
     def predict(self, text):
-        return
+        return torch.sigmoid(text)
 
 
-class LSTM(nn.Module):
-    def __init__(self, vocab_size, output_size, embedding_dim, hidden_dim, n_layers, drop_prob=0.5):
-        super(LSTM, self).__init__()
-        self.output_size = output_size
-        self.n_layers = n_layers
-        self.hidden_dim = hidden_dim
+# #### TODO DELETE (FROM INTERNET)#####
+# class LSTM(nn.Module):
+#     def __init__(self, vocab_size, output_size, embedding_dim, hidden_dim, n_layers, drop_prob=0.5):
+#         super(LSTM, self).__init__()
+#         self.output_size = output_size
+#         self.n_layers = n_layers
+#         self.hidden_dim = hidden_dim
 
-        self.embedding = nn.Embedding(vocab_size, embedding_dim)
-        self.lstm = nn.LSTM(embedding_dim, hidden_dim,
-                            n_layers, dropout=drop_prob, batch_first=True)
-        self.dropout = nn.Dropout(drop_prob)
-        self.fc = nn.Linear(hidden_dim, output_size)
-        self.sigmoid = nn.Sigmoid()
+#         self.embedding = nn.Embedding(vocab_size, embedding_dim)
+#         self.lstm = nn.LSTM(embedding_dim, hidden_dim,
+#                             n_layers, dropout=drop_prob, batch_first=True)
+#         self.dropout = nn.Dropout(drop_prob)
+#         self.fc = nn.Linear(hidden_dim, output_size)
+#         self.sigmoid = nn.Sigmoid()
 
-    def forward(self, x, hidden):
-        batch_size = x.size(0)
-        x = x.long()
-        embeds = self.embedding(x)
-        lstm_out, hidden = self.lstm(embeds, hidden)
-        lstm_out = lstm_out.contiguous().view(-1, self.hidden_dim)
+#     def forward(self, x, hidden):
+#         batch_size = x.size(0)
+#         x = x.long()
+#         embeds = self.embedding(x)
+#         lstm_out, hidden = self.lstm(embeds, hidden)
+#         lstm_out = lstm_out.contiguous().view(-1, self.hidden_dim)
 
-        out = self.dropout(lstm_out)
-        out = self.fc(out)
-        out = self.sigmoid(out)
+#         out = self.dropout(lstm_out)
+#         out = self.fc(out)
+#         out = self.sigmoid(out)
 
-        out = out.view(batch_size, -1)
-        out = out[:, -1]
-        return out, hidden
+#         out = out.view(batch_size, -1)
+#         out = out[:, -1]
+#         return out, hidden
 
-    def init_hidden(self, batch_size):
-        weight = next(self.parameters()).data
-        hidden = (weight.new(self.n_layers, batch_size, self.hidden_dim).zero_().to(device),
-                  weight.new(self.n_layers, batch_size, self.hidden_dim).zero_().to(device))
-        return hidden
+#     def init_hidden(self, batch_size):
+#         weight = next(self.parameters()).data
+#         hidden = (weight.new(self.n_layers, batch_size, self.hidden_dim).zero_().to(device),
+#                   weight.new(self.n_layers, batch_size, self.hidden_dim).zero_().to(device))
+#         return hidden
+
+##############################
 
 
 class LogLinear(nn.Module):
