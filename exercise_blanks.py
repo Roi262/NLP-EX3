@@ -698,12 +698,21 @@ def Q2(lr, weights_array, n_epochs):
         plot_graphs("Log Linear with W2V", train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr, n_epochs, w_dec, lr,
                     "Q2")
 
+def Q3():
+    lr=0.001
+    n_epochs=4
+    w_dec=0.0001
+    train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr = train_lstm_with_w2v()
+    plot_graphs("LSTM with W2V", train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr, n_epochs, w_dec, lr,
+                "Q3")
 
 def main():
     weights_array = [0, 0.0001, 0.001]
     n_epochs = 3
     lr = 0.0001
     Q2(lr, weights_array, n_epochs)
+
+    Q3()
 
     # for wd in weight_decays:
     #     train_log_linear_with_one_hot(lr=lr1, weight_decay=wd, n_epochs=20)
