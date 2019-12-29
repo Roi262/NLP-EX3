@@ -26,6 +26,7 @@ from operator import add
 
 SEQ_LEN = 52
 W2V_EMBEDDING_DIM = 300
+LSTM_BIDIRECTIONAL = True
 
 ONEHOT_AVERAGE = "onehot_average"
 W2V_AVERAGE = "w2v_average"
@@ -309,7 +310,11 @@ class LSTM(nn.Module):
     An LSTM for sentiment analysis with architecture as described in the exercise description.
     """
 
-    def __init__(self, embedding_dim, hidden_dim, n_layers, dropout):
+    def __init__(self, embedding_dim, hidden_dim, n_layers, drop_prob=.5):
+        # self.dropout = nn.Dropout(drop_prob)
+        self.lstm = nn.LSTM(input_size=embedding_dim, hidden_size=hidden_dim,
+                            num_layers=n_layers, dropout=drop_prob, bidirectional=LSTM_BIDIRECTIONAL)
+
         return
 
     def forward(self, text):
@@ -317,6 +322,42 @@ class LSTM(nn.Module):
 
     def predict(self, text):
         return
+
+
+class LSTM(nn.Module):
+    def __init__(self, vocab_size, output_size, embedding_dim, hidden_dim, n_layers, drop_prob=0.5):
+        super(LSTM, self).__init__()
+        self.output_size = output_size
+        self.n_layers = n_layers
+        self.hidden_dim = hidden_dim
+
+        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.lstm = nn.LSTM(embedding_dim, hidden_dim,
+                            n_layers, dropout=drop_prob, batch_first=True)
+        self.dropout = nn.Dropout(drop_prob)
+        self.fc = nn.Linear(hidden_dim, output_size)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x, hidden):
+        batch_size = x.size(0)
+        x = x.long()
+        embeds = self.embedding(x)
+        lstm_out, hidden = self.lstm(embeds, hidden)
+        lstm_out = lstm_out.contiguous().view(-1, self.hidden_dim)
+
+        out = self.dropout(lstm_out)
+        out = self.fc(out)
+        out = self.sigmoid(out)
+
+        out = out.view(batch_size, -1)
+        out = out[:, -1]
+        return out, hidden
+
+    def init_hidden(self, batch_size):
+        weight = next(self.parameters()).data
+        hidden = (weight.new(self.n_layers, batch_size, self.hidden_dim).zero_().to(device),
+                  weight.new(self.n_layers, batch_size, self.hidden_dim).zero_().to(device))
+        return hidden
 
 
 class LogLinear(nn.Module):
@@ -374,10 +415,9 @@ def round_pred(pred_values):
     #         rounded_predictions[i] = POS
     #     else:
     #         rounded_predictions[i] = NEUTRAL
-    rounded_predictions = pred_values>0.5
+    rounded_predictions = pred_values > 0.5
 
     return torch.tensor(rounded_predictions).type(torch.int)
-
 
 
 def train_epoch(model, data_iterator, optimizer, criterion):
@@ -402,14 +442,14 @@ def train_epoch(model, data_iterator, optimizer, criterion):
 
         y_predictions.append(y_p)
         # compute the loss
-        loss = criterion(y_forward, y_label) #CRITERION USES SIGMOID
+        loss = criterion(y_forward, y_label)  # CRITERION USES SIGMOID
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()  # nullify gradients
         avg_loss.append(loss.item())
         avg_acc.append(binary_accuracy(round_pred(y_p), y_label))
 
-    epoch_acc = np.mean(avg_acc) #Not efficient but good for control.
+    epoch_acc = np.mean(avg_acc)  # Not efficient but good for control.
     epoch_loss = np.mean(avg_loss)
     return epoch_loss, epoch_acc
 
@@ -441,7 +481,7 @@ def evaluate(model, data_iterator, criterion):
         avg_loss.append(loss.item())
         avg_acc.append(binary_accuracy(round_pred(y_p), y_label))
 
-    epoch_acc = np.mean(avg_acc) #Not efficient but good for control.
+    epoch_acc = np.mean(avg_acc)  # Not efficient but good for control.
     epoch_loss = np.mean(avg_loss)
     return epoch_loss, epoch_acc
 
@@ -471,7 +511,7 @@ def train_model(model, data_manager, n_epochs, lr, weight_decay=0.):
     :param lr: learning rate to be used for optimization
     :param weight_decay: parameter for l2 regularization
     """
-    model.train() # This is here because of the inverse function in evaluate.
+    model.train()  # This is here because of the inverse function in evaluate.
     optimizer = optim.Adam(params=model.parameters(),
                            lr=lr, weight_decay=weight_decay)
     criterion = nn.BCEWithLogitsLoss()
@@ -482,7 +522,8 @@ def train_model(model, data_manager, n_epochs, lr, weight_decay=0.):
     val_loss_arr = []
     iterator = data_manager.get_torch_iterator(data_subset=TRAIN)
     for epoch in (range(n_epochs)):
-        avg_train_loss, avg_train_acc = train_epoch(model=model, data_iterator=iterator, optimizer=optimizer, criterion=criterion)
+        avg_train_loss, avg_train_acc = train_epoch(
+            model=model, data_iterator=iterator, optimizer=optimizer, criterion=criterion)
         train_acc_arr.append(avg_train_acc)
         train_loss_arr.append(avg_train_loss)
 
@@ -508,7 +549,7 @@ def train_log_linear_with_one_hot(lr, n_epochs, weight_decay):
     # number of distinct words in the corpus
     log_linear_model = LogLinear(embedding_dim=embedding_dimension)
     train_acc, train_loss, val_acc, val_loss = train_model(model=log_linear_model, data_manager=data_manager, n_epochs=n_epochs,
-                          lr=lr, weight_decay=weight_decay)
+                                                           lr=lr, weight_decay=weight_decay)
     # print("EVALUATE")
     # test_acc, test_loss = evaluate(log_linear_model, test_iterator, nn.BCEWithLogitsLoss())
     return train_acc, train_loss, val_acc, val_loss
@@ -519,7 +560,8 @@ def train_log_linear_with_w2v(lr, n_epochs, weight_decay):
     """
     # get data
     size = 64
-    data_manager = DataManager(batch_size=size, embedding_dim=W2V_EMBEDDING_DIM, data_type=W2V_AVERAGE)
+    data_manager = DataManager(
+        batch_size=size, embedding_dim=W2V_EMBEDDING_DIM, data_type=W2V_AVERAGE)
     # test_iterator = DataManager(batch_size=size, embedding_dim=W2V_EMBEDDING_DIM).get_torch_iterator(data_subset=TEST)
 
     # embedding_dimension = len(data_manager.sentiment_dataset.get_word_counts())
@@ -539,6 +581,7 @@ def train_lstm_with_w2v():
     """
     return
 
+
 def plot_graphs(name_of_model, train_acc, train_loss, val_acc, val_loss, n_epochs, w_decay, lr, Q):
     """
     Plot Accuracy and Loss graphs.
@@ -554,36 +597,36 @@ def plot_graphs(name_of_model, train_acc, train_loss, val_acc, val_loss, n_epoch
     """
 
     dir_path = ("plots") + os.sep
-    w_decimal = str(w_decay).replace('.','')
+    w_decimal = str(w_decay).replace('.', '')
     epoch_numbers = list(range(n_epochs))
-    epoch_numbers = list(map(add, epoch_numbers,[1]*n_epochs))
+    epoch_numbers = list(map(add, epoch_numbers, [1]*n_epochs))
     print(train_acc)
 
-    plt.title(name_of_model +" Model Accuracy\n"
-                             "Decay weight="+str(w_decay)+", Learning "
-                                                          "rate="+str(lr))
-    plt.plot(epoch_numbers,train_acc, label = "Train Accuracy")
-    plt.plot(epoch_numbers,val_acc, label = "Validation Accuracy")
+    plt.title(name_of_model + " Model Accuracy\n"
+              "Decay weight="+str(w_decay)+", Learning "
+              "rate="+str(lr))
+    plt.plot(epoch_numbers, train_acc, label="Train Accuracy")
+    plt.plot(epoch_numbers, val_acc, label="Validation Accuracy")
     plt.xticks(epoch_numbers)
     plt.xlabel("Epoch number")
     plt.ylabel("Accuracy rates")
     plt.legend()
     plt.grid()
-    plt.savefig(dir_path + name_of_model + "_acc_w="+ str(w_decimal))
-    plt.clf() # clears the plot
+    plt.savefig(dir_path + name_of_model + "_acc_w=" + str(w_decimal))
+    plt.clf()  # clears the plot
     # plt.show()
 
-    plt.title(name_of_model +" Model Loss\n"
-                             "Decay weight="+str(w_decay)+", Learning rate="+str(lr)+" "+Q)
-    plt.plot(epoch_numbers,train_loss, label = "Train Loss")
-    plt.plot(epoch_numbers,val_loss, label = "Validation Loss")
+    plt.title(name_of_model + " Model Loss\n"
+              "Decay weight="+str(w_decay)+", Learning rate="+str(lr)+" "+Q)
+    plt.plot(epoch_numbers, train_loss, label="Train Loss")
+    plt.plot(epoch_numbers, val_loss, label="Validation Loss")
     plt.xticks(epoch_numbers)
     plt.xlabel("Epoch number")
     plt.ylabel("Loss rates")
     plt.legend()
     plt.grid()
-    plt.savefig(dir_path + name_of_model + "_loss_w="+ str(w_decimal)+" "+Q)
-    plt.clf() # clears the plot
+    plt.savefig(dir_path + name_of_model + "_loss_w=" + str(w_decimal)+" "+Q)
+    plt.clf()  # clears the plot
     # plt.show()
 
 
@@ -592,11 +635,12 @@ def Q1(lr, weights_array, n_epochs):
     for w_dec in weights_array:
         print(str(w_dec)+" Q1")
         train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr = train_log_linear_with_one_hot(lr=lr,
-                                                                                               weight_decay=w_dec,
+                                                                                                 weight_decay=w_dec,
                                                                                                  n_epochs=n_epochs)
 
         plot_graphs("Log Linear with ONEHOT", train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr, n_epochs, w_dec,
                     lr, "Q2")
+
 
 def Q2(lr, weights_array, n_epochs):
     for w_dec in weights_array:
@@ -604,7 +648,8 @@ def Q2(lr, weights_array, n_epochs):
         train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr = train_log_linear_with_w2v(
             lr=lr, weight_decay=w_dec, n_epochs=n_epochs)
         plot_graphs("Log Linear with W2V", train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr, n_epochs, w_dec, lr,
-                "Q2")
+                    "Q2")
+
 
 def main():
     weights_array = [0, 0.0001, 0.001]
