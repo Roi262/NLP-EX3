@@ -29,6 +29,7 @@ W2V_EMBEDDING_DIM = 300
 LSTM_BIDIRECTIONAL = True
 HIDDEN_DIM = 100
 DROP_PROB = 0.5
+BATCH_SIZE = 64
 
 ONEHOT_AVERAGE = "onehot_average"
 W2V_AVERAGE = "w2v_average"
@@ -597,13 +598,12 @@ def train_log_linear_with_one_hot(lr, n_epochs, weight_decay):
     return train_acc, train_loss, val_acc, val_loss
 
 
-def train_log_linear_with_w2v(lr, n_epochs, weight_decay):
+def train_log_linear_with_w2v(lr, n_epochs, weight_decay, batch_size=BATCH_SIZE):
     """
     """
     # get data
-    size = 64
     data_manager = DataManager(
-        batch_size=size, embedding_dim=W2V_EMBEDDING_DIM, data_type=W2V_AVERAGE)
+        batch_size=batch_size, embedding_dim=W2V_EMBEDDING_DIM, data_type=W2V_AVERAGE)
     # test_iterator = DataManager(batch_size=size, embedding_dim=W2V_EMBEDDING_DIM).get_torch_iterator(data_subset=TEST)
 
     # embedding_dimension = len(data_manager.sentiment_dataset.get_word_counts())
@@ -617,11 +617,17 @@ def train_log_linear_with_w2v(lr, n_epochs, weight_decay):
     return train_acc, train_loss, val_acc, val_loss
 
 
-def train_lstm_with_w2v():
+def train_lstm_with_w2v(lr=0.001, n_epochs=4, weight_decay=0.0001, batch_size=BATCH_SIZE):
     """
     Here comes your code for training and evaluation of the LSTM model.
     """
-    return
+    
+    data_manager = DataManager(
+        batch_size=batch_size, embedding_dim=W2V_EMBEDDING_DIM, data_type=W2V_AVERAGE)
+    word_to_vec = 
+    lstm_w2v_learner = LSTM(embedding_dim=W2V_EMBEDDING_DIM, nlayers=1, word_to_vec=word_to_vec)
+    
+    return train_acc, train_loss, val_acc, val_loss
 
 
 def plot_graphs(name_of_model, train_acc, train_loss, val_acc, val_loss, n_epochs, w_decay, lr, Q):
