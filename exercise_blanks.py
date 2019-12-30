@@ -599,12 +599,11 @@ def train_log_linear_with_one_hot(lr, n_epochs, weight_decay):
     return train_acc, train_loss, val_acc, val_loss
 
 
-def train_log_linear_with_w2v(lr, n_epochs, weight_decay, batch_size=BATCH_SIZE):
+def train_log_linear_with_w2v(lr, n_epochs, weight_decay):
     """
     """
     # get data
-    data_manager = DataManager(
-        batch_size=batch_size, embedding_dim=W2V_EMBEDDING_DIM, data_type=W2V_AVERAGE)
+    data_manager = DataManager(batch_size=BATCH_SIZE, embedding_dim=W2V_EMBEDDING_DIM, data_type=W2V_AVERAGE)
     # test_iterator = DataManager(batch_size=size, embedding_dim=W2V_EMBEDDING_DIM).get_torch_iterator(data_subset=TEST)
 
     # embedding_dimension = len(data_manager.sentiment_dataset.get_word_counts())
@@ -714,10 +713,10 @@ def main():
     lr = 0.01
     # Q1(lr=lr, weights_array=weights_array, n_epochs=n_epochs)
 
-    Q2(lr, weights_array, n_epochs)
+    Q2(lr=lr, weights_array=weights_array, n_epochs=n_epochs)
 
     # Q3()
-    
+
     # for wd in weight_decays:
     #     train_log_linear_with_one_hot(lr=lr1, weight_decay=wd, n_epochs=20)
     # train_log_linear_with_w2v()
