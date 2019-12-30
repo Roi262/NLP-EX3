@@ -135,13 +135,14 @@ def get_w2v_average(sent, word_to_vec, embedding_dim):
     :return The average embedding vector as numpy ndarray.
     """
     avg = np.ndarray(embedding_dim)
+    num_of_unknowns = 0
     for word in sent.text:
         if word_to_vec.get(word) is not None:
             embedding = word_to_vec[word]
             avg += embedding    
-        # else:
-        #     embedding = np.zeros(W2V_EMBEDDING_DIM)
-    avg = avg/len(sent.text)
+        else:
+            num_of_unknowns += 1
+    avg = avg/(len(sent.text) - num_of_unknowns)
     return avg
 
 
@@ -323,7 +324,7 @@ class LSTM(nn.Module):
     An LSTM for sentiment analysis with architecture as described in the exercise description.
     """
 
-    def __init__(self, embedding_dim, n_layers, word_to_vec, hidden_dim=HIDDEN_DIM, drop_prob=DROP_PROB):
+    def __init__(self, embedding_dim, n_layers, hidden_dim=HIDDEN_DIM, drop_prob=DROP_PROB):
         """
         Arguments:
             embedding_dim {[type]} -- [description]
@@ -338,7 +339,6 @@ class LSTM(nn.Module):
         self.hidden_dim = hidden_dim
         self.n_layers = n_layers
         self.dropout = nn.Dropout(drop_prob) 
-        self.word_to_vec = word_to_vec
         self.lstm = nn.LSTM(input_size=self.embedding_dim, hidden_size=self.hidden_dim,
                             num_layers=self.n_layers, dropout=drop_prob, bidirectional=LSTM_BIDIRECTIONAL)
         # each LSTM cell will receive as input the Word2Vec embedding of a word in the input sentence
@@ -466,6 +466,7 @@ def round_pred(pred_values):
     return torch.tensor(rounded_predictions).type(torch.int)
 
 
+
 def train_epoch(model, data_iterator, optimizer, criterion):
     """
     This method operates one epoch (pass over the whole train set) of training of the given model,
@@ -482,7 +483,7 @@ def train_epoch(model, data_iterator, optimizer, criterion):
     for x, y_label in tqdm(data_iterator):
         x = x.float()
         y_label = y_label.reshape(len(y_label), 1).double()
-        y_forward = model(x)
+        y_forward = model(x) # TODO BUG HERE - y_forward becomes vector of zeros
         #############################
         y_p = model.predict(y_forward).double()
 
@@ -620,17 +621,18 @@ def train_log_linear_with_w2v(lr, n_epochs, weight_decay, batch_size=BATCH_SIZE)
     return train_acc, train_loss, val_acc, val_loss
 
 
-# def train_lstm_with_w2v(lr=0.001, n_epochs=4, weight_decay=0.0001, batch_size=BATCH_SIZE):
-#     """
-#     Here comes your code for training and evaluation of the LSTM model.
-#     """
+def train_lstm_with_w2v(lr=0.001, n_epochs=4, weight_decay=0.0001, batch_size=BATCH_SIZE):
+    """
+    Here comes your code for training and evaluation of the LSTM model.
+    """
     
-#     data_manager = DataManager(
-#         batch_size=batch_size, embedding_dim=W2V_EMBEDDING_DIM, data_type=W2V_AVERAGE)
-#     word_to_vec = 
-#     lstm_w2v_learner = LSTM(embedding_dim=W2V_EMBEDDING_DIM, nlayers=1, word_to_vec=word_to_vec)
-    
-#     return train_acc, train_loss, val_acc, val_loss
+    data_manager = DataManager(
+        batch_size=batch_size, embedding_dim=W2V_EMBEDDING_DIM, data_type=W2V_AVERAGE)
+    # word_to_vec = 
+    lstm_w2v_learner = LSTM(embedding_dim=W2V_EMBEDDING_DIM, n_layers=1)
+    train_acc, train_loss, val_acc, val_loss = train_model(model=lstm_w2v_learner, data_manager=data_manager, n_epochs=n_epochs,
+                                                           lr=lr, weight_decay=weight_decay)
+    return train_acc, train_loss, val_acc, val_loss
 
 
 def plot_graphs(name_of_model, train_acc, train_loss, val_acc, val_loss, n_epochs, w_decay, lr, Q):
@@ -711,11 +713,11 @@ def Q3():
 
 def main():
     weights_array = [0, 0.0001, 0.001]
-    n_epochs = 3
+    n_epochs = 20
     lr = 0.0001
-    Q2(lr, weights_array, n_epochs)
+    # Q2(lr, weights_array, n_epochs)
 
-    # Q3()
+    Q3()
 
     # for wd in weight_decays:
     #     train_log_linear_with_one_hot(lr=lr1, weight_decay=wd, n_epochs=20)
