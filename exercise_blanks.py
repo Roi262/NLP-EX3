@@ -166,10 +166,14 @@ def average_one_hots(sent, word_to_ind):
     :param word_to_ind: a mapping between words to indices
     :return:
     """
+    # size = len(word_to_ind)
     avg = np.zeros(len(word_to_ind))
+    # sent_text = sent.text
     for word in sent.text:
         word_index = word_to_ind[word]
         avg[word_index] += 1
+        # avg += get_one_hot(len(word_to_ind), word_to_ind[word])
+
     avg = avg/len(sent.text)
     return avg
 
@@ -565,7 +569,6 @@ def train_model(model, data_manager, n_epochs, lr, weight_decay=0.):
     criterion = nn.BCEWithLogitsLoss()
     train_acc_arr = []
     train_loss_arr = []
-
     val_acc_arr = []
     val_loss_arr = []
     train_iterator = data_manager.get_torch_iterator(data_subset=TRAIN)
