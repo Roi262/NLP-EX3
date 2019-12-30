@@ -193,17 +193,20 @@ def sentence_to_embedding(sent, word_to_vec, seq_len, embedding_dim=300):
     :param embedding_dim: the dimension of the w2v embedding
     :return: numpy ndarray of shape (seq_len, embedding_dim) with the representation of the sentence
     """
-    embeddings = np.zeros(shape=(seq_len, embedding_dim))
+    embeddings = np.zeros([seq_len, embedding_dim])
     sent_list = sent.text
     if len(sent_list) < seq_len:
         for i, word in enumerate(sent_list):
-            embeddings[i] = word_to_vec[word]
+            if word in word_to_vec:
+                embeddings[i] = word_to_vec[word]
         # pad the rest with zero embeddings
         for i in range(len(sent_list), seq_len):
-            embeddings[i] = np.zeros(embedding_dim)
+            if word in word_to_vec:
+                embeddings[i] = np.zeros(embedding_dim)
     else:  # i.e., sent_list >= seq_len
         for i in range(seq_len):
-            embeddings[i] = word_to_vec[sent_list[i]]
+            if word in word_to_vec:
+                embeddings[i] = word_to_vec[sent_list[i]]
     return embeddings
 
 
@@ -597,6 +600,10 @@ def train_log_linear_with_w2v(lr, n_epochs, weight_decay):
     train_acc, train_loss, val_acc, val_loss = train_model(model=log_linear_w2v, data_manager=data_manager, n_epochs=n_epochs,
                                                            lr=lr, weight_decay=weight_decay)
     print("w2v Test set")
+
+    negated_and_rare(log_linear_w2v)
+
+
     return train_acc, train_loss, val_acc, val_loss
 
 
@@ -614,7 +621,7 @@ def train_lstm_with_w2v(lr=0.001, n_epochs=4, weight_decay=0.0001, batch_size=BA
     train_acc, train_loss, val_acc, val_loss = train_model(model=lstm_w2v_learner, data_manager=data_manager, n_epochs=n_epochs,
                                                            lr=lr, weight_decay=weight_decay)
 
-    return train_acc, train_loss, val_acc, val_loss
+    return train_acc, train_loss, val_acc, val_loss, lstm_w2v_learner
 
 
 def plot_graphs(name_of_model, train_acc, train_loss, val_acc, val_loss, n_epochs, w_decay, lr, Q):
@@ -724,18 +731,23 @@ def Q2(lr, weights_array, n_epochs):
         plot_graphs("Log Linear with W2V", train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr, n_epochs, w_dec, lr,
                     "Q2")
 
+        
+
         # plot_test_graphs(test_acc_arr, test_loss_arr, model_name=model_name +
         #                  " with weight decay " + str(w_dec), n_epochs=n_epochs)
 
 
 def Q3():
     lr = 0.001
-    n_epochs = 2
+    n_epochs = 4
     w_dec = 0.0001
     print(str(w_dec) + " Q3")
-    train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr = train_lstm_with_w2v()
+    train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr, model = train_lstm_with_w2v()
     plot_graphs("LSTM with W2V", train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr, n_epochs, w_dec, lr,
                 "Q3")
+
+    negated_and_rare(model, False)
+    
     # plot_test_graphs(test_acc_arr, test_loss_arr,
     #                  model_name="LSTM with W2V", n_epochs=n_epochs)
 
@@ -744,9 +756,9 @@ def main():
     weights_array = [0, 0.0001, 0.001]
     n_epochs = 20
     lr = 0.01
-    Q1(lr=lr, weights_array=weights_array, n_epochs=n_epochs)
+    # Q1(lr=lr, weights_array=weights_array, n_epochs=n_epochs)
     # Q2(lr=lr, weights_array=weights_array, n_epochs=n_epochs)
-    # Q3()
+    Q3()
 
 
 if __name__ == '__main__':
