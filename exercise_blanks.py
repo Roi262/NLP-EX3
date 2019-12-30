@@ -476,6 +476,7 @@ def train_epoch(model, data_iterator, optimizer, criterion):
     :param optimizer: the optimizer object for the training process.
     :param criterion: the criterion object for the training process.
     """
+    model.train()
     avg_loss = []
     y_predictions = []
     avg_acc = []
@@ -509,7 +510,7 @@ def evaluate(model, data_iterator, criterion):
     :param criterion: the loss criterion used for evaluation
     :return: tuple of (average loss over all examples, average accuracy over all examples)
     """
-    model.evaluate()
+    model.eval()
     avg_loss = []
     y_predictions = []
     avg_acc = []
@@ -567,16 +568,17 @@ def train_model(model, data_manager, n_epochs, lr, weight_decay=0.):
 
     val_acc_arr = []
     val_loss_arr = []
-    iterator = data_manager.get_torch_iterator(data_subset=TRAIN)
+    train_iterator = data_manager.get_torch_iterator(data_subset=TRAIN)
+    val_iterator = data_manager.get_torch_iterator(data_subset=VAL)
     for epoch in (range(n_epochs)):
         avg_train_loss, avg_train_acc = train_epoch(
-            model=model, data_iterator=iterator, optimizer=optimizer, criterion=criterion)
+            model=model, data_iterator=train_iterator, optimizer=optimizer, criterion=criterion)
         train_acc_arr.append(avg_train_acc)
         train_loss_arr.append(avg_train_loss)
 
         # Validation        TODO is the validation in the same epoch loop or another?
-        avg_val_loss, avg_val_acc = train_epoch(
-            model, data_manager.get_torch_iterator(data_subset=VAL), optimizer, criterion)
+        avg_val_loss, avg_val_acc = evaluate(model=model, data_iterator=val_iterator, criterion=criterion)
+        # (model, data_manager.get_torch_iterator(data_subset=VAL), optimizer, criterion)
         val_acc_arr.append(avg_val_acc)
         val_loss_arr.append(avg_val_loss)
 
@@ -713,11 +715,13 @@ def Q3():
 
 def main():
     weights_array = [0, 0.0001, 0.001]
-    n_epochs = 20
+    n_epochs = 7
     lr = 0.0001
+    Q1(lr=lr, weights_array=weights_array, n_epochs=n_epochs)
+
     # Q2(lr, weights_array, n_epochs)
 
-    Q3()
+    # Q3()
 
     # for wd in weight_decays:
     #     train_log_linear_with_one_hot(lr=lr1, weight_decay=wd, n_epochs=20)
