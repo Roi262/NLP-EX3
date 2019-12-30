@@ -136,8 +136,11 @@ def get_w2v_average(sent, word_to_vec, embedding_dim):
     """
     avg = np.ndarray(embedding_dim)
     for word in sent.text:
-        embedding = word_to_vec[word]
-        avg += embedding
+        if word_to_vec.get(word) is not None:
+            embedding = word_to_vec[word]
+            avg += embedding    
+        # else:
+        #     embedding = np.zeros(W2V_EMBEDDING_DIM)
     avg = avg/len(sent.text)
     return avg
 
@@ -617,17 +620,17 @@ def train_log_linear_with_w2v(lr, n_epochs, weight_decay, batch_size=BATCH_SIZE)
     return train_acc, train_loss, val_acc, val_loss
 
 
-def train_lstm_with_w2v(lr=0.001, n_epochs=4, weight_decay=0.0001, batch_size=BATCH_SIZE):
-    """
-    Here comes your code for training and evaluation of the LSTM model.
-    """
+# def train_lstm_with_w2v(lr=0.001, n_epochs=4, weight_decay=0.0001, batch_size=BATCH_SIZE):
+#     """
+#     Here comes your code for training and evaluation of the LSTM model.
+#     """
     
-    data_manager = DataManager(
-        batch_size=batch_size, embedding_dim=W2V_EMBEDDING_DIM, data_type=W2V_AVERAGE)
-    word_to_vec = 
-    lstm_w2v_learner = LSTM(embedding_dim=W2V_EMBEDDING_DIM, nlayers=1, word_to_vec=word_to_vec)
+#     data_manager = DataManager(
+#         batch_size=batch_size, embedding_dim=W2V_EMBEDDING_DIM, data_type=W2V_AVERAGE)
+#     word_to_vec = 
+#     lstm_w2v_learner = LSTM(embedding_dim=W2V_EMBEDDING_DIM, nlayers=1, word_to_vec=word_to_vec)
     
-    return train_acc, train_loss, val_acc, val_loss
+#     return train_acc, train_loss, val_acc, val_loss
 
 
 def plot_graphs(name_of_model, train_acc, train_loss, val_acc, val_loss, n_epochs, w_decay, lr, Q):
@@ -712,7 +715,7 @@ def main():
     lr = 0.0001
     Q2(lr, weights_array, n_epochs)
 
-    Q3()
+    # Q3()
 
     # for wd in weight_decays:
     #     train_log_linear_with_one_hot(lr=lr1, weight_decay=wd, n_epochs=20)
