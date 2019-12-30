@@ -687,7 +687,6 @@ def train_lstm_with_w2v(lr=0.001, n_epochs=4, weight_decay=0.0001, batch_size=BA
 
     data_manager = DataManager(
         batch_size=batch_size, embedding_dim=W2V_EMBEDDING_DIM, data_type=W2V_SEQUENCE)
-    # word_to_vec =
     lstm_w2v_learner = LSTM(embedding_dim=W2V_EMBEDDING_DIM, n_layers=1)
     train_acc, train_loss, val_acc, val_loss = train_model(model=lstm_w2v_learner, data_manager=data_manager, n_epochs=n_epochs,
                                                            lr=lr, weight_decay=weight_decay)
