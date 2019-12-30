@@ -134,14 +134,16 @@ def get_w2v_average(sent, word_to_vec, embedding_dim):
     :param embedding_dim: the dimension of the word embedding vectors
     :return The average embedding vector as numpy ndarray.
     """
-    avg = np.ndarray(embedding_dim)
+    avg = np.zeros(embedding_dim)
     num_of_unknowns = 0
     for word in sent.text:
         if word_to_vec.get(word) is not None:
-            embedding = word_to_vec[word]
-            avg += embedding    
+            avg += word_to_vec[word]
+            # knowns += 1
         else:
             num_of_unknowns += 1
+    if num_of_unknowns == len(sent.text):
+        return avg
     avg = avg/(len(sent.text) - num_of_unknowns)
     return avg
 
@@ -205,7 +207,7 @@ def sentence_to_embedding(sent, word_to_vec, seq_len, embedding_dim=300):
         # pad the rest with zero embeddings
         for i in range(seq_len - len(sent_list)):
             embeddings[i] = np.zeros(embedding_dim)
-    else: # i.e., sent_list >= seq_len
+    else:  # i.e., sent_list >= seq_len
         for i in range(seq_len):
             embeddings[i] = word_to_vec[sent_list[i]]
     return embeddings
@@ -328,7 +330,7 @@ class LSTM(nn.Module):
             embedding_dim {[type]} -- [description]
             n_layers {[type]} -- [description]
             word_to_vec {[dict]} -- We added this as input for ease of use
-        
+
         Keyword Arguments:
             hidden_dim {[type]} -- [description] (default: {HIDDEN_DIM})
             drop_prob {[type]} -- [description] (default: {DROP_PROB})
@@ -336,7 +338,7 @@ class LSTM(nn.Module):
         self.embedding_dim = embedding_dim
         self.hidden_dim = hidden_dim
         self.n_layers = n_layers
-        self.dropout = nn.Dropout(drop_prob) 
+        self.dropout = nn.Dropout(drop_prob)
         self.lstm = nn.LSTM(input_size=self.embedding_dim, hidden_size=self.hidden_dim,
                             num_layers=self.n_layers, dropout=drop_prob, bidirectional=LSTM_BIDIRECTIONAL)
         # each LSTM cell will receive as input the Word2Vec embedding of a word in the input sentence
@@ -464,7 +466,6 @@ def round_pred(pred_values):
     return torch.tensor(rounded_predictions).type(torch.int)
 
 
-
 def train_epoch(model, data_iterator, optimizer, criterion):
     """
     This method operates one epoch (pass over the whole train set) of training of the given model,
@@ -573,7 +574,8 @@ def train_model(model, data_manager, n_epochs, lr, weight_decay=0.):
         train_loss_arr.append(avg_train_loss)
 
         # Validation
-        avg_val_loss, avg_val_acc = evaluate(model=model, data_iterator=val_iterator, criterion=criterion)
+        avg_val_loss, avg_val_acc = evaluate(
+            model=model, data_iterator=val_iterator, criterion=criterion)
         val_acc_arr.append(avg_val_acc)
         val_loss_arr.append(avg_val_loss)
 
@@ -603,7 +605,8 @@ def train_log_linear_with_w2v(lr, n_epochs, weight_decay):
     """
     """
     # get data
-    data_manager = DataManager(batch_size=BATCH_SIZE, embedding_dim=W2V_EMBEDDING_DIM, data_type=W2V_AVERAGE)
+    data_manager = DataManager(
+        batch_size=BATCH_SIZE, embedding_dim=W2V_EMBEDDING_DIM, data_type=W2V_AVERAGE)
     # test_iterator = DataManager(batch_size=size, embedding_dim=W2V_EMBEDDING_DIM).get_torch_iterator(data_subset=TEST)
 
     # embedding_dimension = len(data_manager.sentiment_dataset.get_word_counts())
@@ -621,10 +624,10 @@ def train_lstm_with_w2v(lr=0.001, n_epochs=4, weight_decay=0.0001, batch_size=BA
     """
     Here comes your code for training and evaluation of the LSTM model.
     """
-    
+
     data_manager = DataManager(
         batch_size=batch_size, embedding_dim=W2V_EMBEDDING_DIM, data_type=W2V_AVERAGE)
-    # word_to_vec = 
+    # word_to_vec =
     lstm_w2v_learner = LSTM(embedding_dim=W2V_EMBEDDING_DIM, n_layers=1)
     train_acc, train_loss, val_acc, val_loss = train_model(model=lstm_w2v_learner, data_manager=data_manager, n_epochs=n_epochs,
                                                            lr=lr, weight_decay=weight_decay)
@@ -661,7 +664,7 @@ def plot_graphs(name_of_model, train_acc, train_loss, val_acc, val_loss, n_epoch
     plt.ylabel("Accuracy rates")
     plt.legend()
     plt.grid()
-    plt.savefig(dir_path + name_of_model + "_acc_w=" + str(w_decimal))
+    plt.savefig(dir_path + name_of_model + "_acc_w=" + str(w_decimal)+" "+Q)
     plt.clf()  # clears the plot
     # plt.show()
 
@@ -688,7 +691,7 @@ def Q1(lr, weights_array, n_epochs):
                                                                                                  n_epochs=n_epochs)
 
         plot_graphs("Log Linear with ONEHOT", train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr, n_epochs, w_dec,
-                    lr, "Q2")
+                    lr, "Q1")
 
 
 def Q2(lr, weights_array, n_epochs):
@@ -699,17 +702,19 @@ def Q2(lr, weights_array, n_epochs):
         plot_graphs("Log Linear with W2V", train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr, n_epochs, w_dec, lr,
                     "Q2")
 
+
 def Q3():
-    lr=0.001
-    n_epochs=4
-    w_dec=0.0001
+    lr = 0.001
+    n_epochs = 4
+    w_dec = 0.0001
     train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr = train_lstm_with_w2v()
     plot_graphs("LSTM with W2V", train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr, n_epochs, w_dec, lr,
                 "Q3")
 
+
 def main():
     weights_array = [0, 0.0001, 0.001]
-    n_epochs = 7
+    n_epochs = 5
     lr = 0.01
     # Q1(lr=lr, weights_array=weights_array, n_epochs=n_epochs)
 
