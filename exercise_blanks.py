@@ -17,11 +17,6 @@ from matplotlib import pyplot as plt
 from operator import add
 
 
-# print(torch.__version__)
-
-
-# Pytorch TA: https://colab.research.google.com/drive/18JCEnRsTmd_eSEkJmuoYGy0m0iOv7GgM
-
 # ------------------------------------------- Constants ----------------------------------------
 
 SEQ_LEN = 52
@@ -188,31 +183,6 @@ def get_word_to_ind(words_list):
     return word_to_ind
 
 
-# def sentence_to_embedding(sent, word_to_vec, seq_len, embedding_dim=300):
-#     """
-#     this method gets a sentence and a word to vector mapping, and returns a list containing the
-#     words embeddings of the tokens in the sentence.
-#     :param sent: a sentence object
-#     :param word_to_vec: a word to vector mapping.
-#     :param seq_len: the fixed length for which the sentence will be mapped to.
-#     :param embedding_dim: the dimension of the w2v embedding
-#     :return: numpy ndarray of shape (seq_len, embedding_dim) with the representation of the sentence
-#     """
-#     embeddings = np.ndarray(shape=(seq_len, embedding_dim))
-#     sent_list = sent.text
-#     if len(sent_list) < seq_len:
-#         for i, word in enumerate(sent_list):
-#             embeddings[i] = word_to_vec[word]
-#         # pad the rest with zero embeddings
-#         for i in range(seq_len - len(sent_list)):
-#             embeddings[i] = np.zeros(embedding_dim)
-#     else:  # i.e., sent_list >= seq_len
-#         for i in range(seq_len):
-#             embeddings[i] = word_to_vec[sent_list[i]]
-#     return embeddings
-
-
-# ##############TODO DELETE
 def sentence_to_embedding(sent, word_to_vec, seq_len, embedding_dim=300):
     """
     this method gets a sentence and a word to vector mapping, and returns a list containing the
@@ -223,14 +193,19 @@ def sentence_to_embedding(sent, word_to_vec, seq_len, embedding_dim=300):
     :param embedding_dim: the dimension of the w2v embedding
     :return: numpy ndarray of shape (seq_len, embedding_dim) with the representation of the sentence
     """
-    result = np.zeros([seq_len, embedding_dim])
-    text = sent.text
-    for i, word in enumerate(text[:seq_len]):
-        if word in word_to_vec:
-            result[i] = word_to_vec[word]
+    embeddings = np.zeros(shape=(seq_len, embedding_dim))
+    sent_list = sent.text
+    if len(sent_list) < seq_len:
+        for i, word in enumerate(sent_list):
+            embeddings[i] = word_to_vec[word]
+        # pad the rest with zero embeddings
+        for i in range(len(sent_list), seq_len):
+            embeddings[i] = np.zeros(embedding_dim)
+    else:  # i.e., sent_list >= seq_len
+        for i in range(seq_len):
+            embeddings[i] = word_to_vec[sent_list[i]]
+    return embeddings
 
-    return result
-# #####################
 
 class OnlineDataset(Dataset):
     """
@@ -338,41 +313,6 @@ class DataManager():
 
 # ------------------------------------ Models ----------------------------------------------------
 
-# gillll
-# class LSTM(nn.Module):
-# 	"""
-# 	An LSTM for sentiment analysis with architecture as described in the
-# 	exercise description.
-# 	"""
-
-# 	def __init__(self, embedding_dim, n_layers, hidden_dim=100, dropout=.5):
-# 		super().__init__()
-# 		self.hidden_dim = hidden_dim
-# 		self.embedding_dim = embedding_dim
-# 		self.n_layers = n_layers
-# 		self.lstm = nn.LSTM(input_size=embedding_dim, hidden_size=hidden_dim, num_layers=n_layers, bidirectional=True)
-# 		self.dropout = nn.Dropout(p=dropout)
-# 		# self.fc = nn.Linear((hidden_dim * 2), 1)
-# 		self.fc = nn.Linear((hidden_dim), 1)
-
-# 		return
-
-# 	def forward(self, text):
-# 		# text = text.permute(1, 0, 2)
-# 		out1, (h_n, c_n) = self.lstm(text)
-# 		h_n = h_n[0, :, :] + h_n[1, :, :]
-# 		mid = self.dropout(h_n)
-# 		# out = self.fc(mid[:, -1, :])
-# 		out = self.fc(mid)
-# 		return out
-
-# 	def predict(self, text):
-# 		return torch.sigmoid(text)
-
-
-
-
-
 class LSTM(nn.Module):
     """
     An LSTM for sentiment analysis with architecture as described in the exercise description.
@@ -397,25 +337,17 @@ class LSTM(nn.Module):
                             num_layers=self.n_layers, dropout=drop_prob, bidirectional=LSTM_BIDIRECTIONAL, batch_first=True)
         self.dropout = nn.Dropout(drop_prob)
         # each LSTM cell will receive as input the Word2Vec embedding of a word in the input sentence
-        # self.embedding = sentence_to_embedding
-        # self.linear = nn.Linear(self.hidden_dim * 2, 1)
         self.linear = nn.Linear(self.hidden_dim, 1)
-        # self.double()
-        # self.hidden
         return
 
-
     def forward(self, text):
-        """First, get the embeddings for the words in the text. then forward through lstm
+        """forward through lstm
         Arguments:
-            text {[type]} -- A sentence (?)
+            text {[type]} -- A w2v embedding of a sentence.
         Returns:
             [type] -- [description]
         """
-        # embeddings = self.embedding(sent=text, word_to_vec=self.word_to_vec, seq_len=len(text), embedding_dim=self.embedding_dim)
-        # permuted_text = text.permute(1, 0, 2)
         output, (h_n, c_n) = self.lstm(text)
-
         h_s_1 = h_n[0, :, :]
         h_s_2 = h_n[1, :, :]
         # concatenate the two hidden states
@@ -425,45 +357,6 @@ class LSTM(nn.Module):
 
     def predict(self, text):
         return torch.sigmoid(text)
-
-
-# # #### TODO DELETE (FROM INTERNET)#####
-# class LSTM2(nn.Module):
-#     def __init__(self, vocab_size, output_size, embedding_dim, hidden_dim, n_layers, drop_prob=0.5):
-#         super(LSTM, self).__init__()
-#         self.output_size = output_size
-#         self.n_layers = n_layers
-#         self.hidden_dim = hidden_dim
-
-#         self.embedding = nn.Embedding(vocab_size, embedding_dim)
-#         self.lstm = nn.LSTM(embedding_dim, hidden_dim,
-#                             n_layers, dropout=drop_prob, batch_first=True)
-#         self.dropout = nn.Dropout(drop_prob)
-#         self.fc = nn.Linear(hidden_dim, output_size)
-#         self.sigmoid = nn.Sigmoid()
-
-#     def forward(self, x, hidden):
-#         batch_size = x.size(0)
-#         x = x.long()
-#         embeds = self.embedding(x)
-#         lstm_out, hidden = self.lstm(embeds, hidden)
-#         lstm_out = lstm_out.contiguous().view(-1, self.hidden_dim)
-
-#         out = self.dropout(lstm_out)
-#         out = self.fc(out)
-#         out = self.sigmoid(out)
-
-#         out = out.view(batch_size, -1)
-#         out = out[:, -1]
-#         return out, hidden
-
-#     def init_hidden(self, batch_size):
-#         weight = next(self.parameters()).data
-#         hidden = (weight.new(self.n_layers, batch_size, self.hidden_dim).zero_().to(device),
-#                   weight.new(self.n_layers, batch_size, self.hidden_dim).zero_().to(device))
-#         return hidden
-
-##############################
 
 
 class LogLinear(nn.Module):
@@ -513,16 +406,7 @@ def round_pred(pred_values):
     Returns:
         [float] -- rounded prediction
     """
-    # rounded_predictions = [0] * pred_values.shape[0]
-    # for i, val in enumerate(pred_values):
-    #     if val <= NEG_THRESH:
-    #         rounded_predictions[i] = NEG
-    #     elif val >= POS_THRESH:
-    #         rounded_predictions[i] = POS
-    #     else:
-    #         rounded_predictions[i] = NEUTRAL
     rounded_predictions = pred_values > 0.5
-
     return torch.tensor(rounded_predictions).type(torch.int)
 
 
@@ -576,9 +460,7 @@ def evaluate(model, data_iterator, criterion):
         x = x.float()
         y_label = y_label.reshape(len(y_label), 1).double()
         y_forward = model(x)
-        #############################
         y_p = model.predict(y_forward).double()
-
         y_predictions.append(y_p)
         # compute the loss
         loss = criterion(y_p, y_label)
@@ -588,7 +470,7 @@ def evaluate(model, data_iterator, criterion):
 
     epoch_acc = np.mean(avg_acc)  # Not efficient but good for control.
     epoch_loss = np.mean(avg_loss)
-    return epoch_loss, epoch_acc
+    return epoch_acc, epoch_loss
 
 
 def get_predictions_for_data(model, data_iter):
@@ -600,10 +482,46 @@ def get_predictions_for_data(model, data_iter):
     :param data_iter: torch iterator as given by the DataManager
     :return:
     """
-    predictions = np.ndarray(len(data_iter))
-    for i, example in enumerate(data_iter):
-        predictions[i] = model.predict(example)
-    return predictions
+    preds = np.reshape(np.array([]), (0, 1))
+    for example in data_iter:
+        pred = model.predict(model.forward(example[0].float())).double()
+        preds = np.concatenate((preds, round_pred(pred)))
+    return preds
+
+
+def get_iter_labels(data_iter):
+    labels = np.array([])
+    for example in data_iter:
+        labels = np.concatenate((labels, np.asarray(example[1])))
+    return labels
+
+
+def negated_and_rare(model, isLogLin=True):
+
+    if isLogLin:
+        data_man = DataManager(batch_size=BATCH_SIZE)
+        data_iter = data_man.get_torch_iterator(data_subset=TEST)
+        print("Log linear test on negated words: ")
+
+    else:
+        data_man = DataManager(
+            data_type=W2V_SEQUENCE, batch_size=BATCH_SIZE, embedding_dim=W2V_EMBEDDING_DIM)
+        data_iter = data_man.get_torch_iterator(data_subset=TEST)
+        print("W2V test with on negated words: ")
+
+    sent_list = data_iter.dataset.data
+    preds = get_predictions_for_data(model, data_iter)
+    neg_indices = data_loader.get_negated_polarity_examples(sent_list)
+    rare_indices = data_loader.get_rare_words_examples(
+        sent_list, data_loader.SentimentTreeBank())
+    rare_preds = np.take(preds, rare_indices)
+    neg_preds = np.take(preds, neg_indices)
+    rare_labels = np.take(get_iter_labels(data_iter), rare_indices)
+    neg_labels = np.take(get_iter_labels(data_iter), neg_indices)
+    neg_acc = binary_accuracy(neg_preds, neg_labels)
+    rare_acc = binary_accuracy(rare_preds, rare_labels)
+    print("Negated words accuracy: ", neg_acc)
+    print("Rare words accuracy: ", rare_acc)
 
 
 def train_model(model, data_manager, n_epochs, lr, weight_decay=0.):
@@ -648,7 +566,8 @@ def train_log_linear_with_one_hot(lr, n_epochs, weight_decay):
     """
     # initialize data manager
     data_manager = DataManager(batch_size=BATCH_SIZE)
-    # test_iterator = DataManager(batch_size=size).get_torch_iterator(data_subset=TEST)
+    test_iterator = DataManager(
+        batch_size=BATCH_SIZE).get_torch_iterator(data_subset=TEST)
 
     embedding_dimension = len(data_manager.sentiment_dataset.get_word_counts())
 
@@ -656,8 +575,10 @@ def train_log_linear_with_one_hot(lr, n_epochs, weight_decay):
     log_linear_model = LogLinear(embedding_dim=embedding_dimension)
     train_acc, train_loss, val_acc, val_loss = train_model(model=log_linear_model, data_manager=data_manager, n_epochs=n_epochs,
                                                            lr=lr, weight_decay=weight_decay)
-    # print("EVALUATE")
-    # test_acc, test_loss = evaluate(log_linear_model, test_iterator, nn.BCEWithLogitsLoss())
+    print("log linear test set")
+
+    negated_and_rare(log_linear_model)
+
     return train_acc, train_loss, val_acc, val_loss
 
 
@@ -667,16 +588,15 @@ def train_log_linear_with_w2v(lr, n_epochs, weight_decay):
     # get data
     data_manager = DataManager(
         batch_size=BATCH_SIZE, embedding_dim=W2V_EMBEDDING_DIM, data_type=W2V_AVERAGE)
-    # test_iterator = DataManager(batch_size=size, embedding_dim=W2V_EMBEDDING_DIM).get_torch_iterator(data_subset=TEST)
 
-    # embedding_dimension = len(data_manager.sentiment_dataset.get_word_counts())
+    test_iterator = DataManager(
+        batch_size=BATCH_SIZE).get_torch_iterator(data_subset=TEST)
 
     # number of distinct words in the corpus
     log_linear_w2v = LogLinear(embedding_dim=W2V_EMBEDDING_DIM)
     train_acc, train_loss, val_acc, val_loss = train_model(model=log_linear_w2v, data_manager=data_manager, n_epochs=n_epochs,
                                                            lr=lr, weight_decay=weight_decay)
-    # print("EVALUATE")
-    # test_acc, test_loss = evaluate(log_linear_model, test_iterator, nn.BCEWithLogitsLoss())
+    print("w2v Test set")
     return train_acc, train_loss, val_acc, val_loss
 
 
@@ -684,12 +604,16 @@ def train_lstm_with_w2v(lr=0.001, n_epochs=4, weight_decay=0.0001, batch_size=BA
     """
     Here comes your code for training and evaluation of the LSTM model.
     """
-
     data_manager = DataManager(
         batch_size=batch_size, embedding_dim=W2V_EMBEDDING_DIM, data_type=W2V_SEQUENCE)
+
+    test_iterator = DataManager(
+        batch_size=BATCH_SIZE).get_torch_iterator(data_subset=TEST)
+
     lstm_w2v_learner = LSTM(embedding_dim=W2V_EMBEDDING_DIM, n_layers=1)
     train_acc, train_loss, val_acc, val_loss = train_model(model=lstm_w2v_learner, data_manager=data_manager, n_epochs=n_epochs,
                                                            lr=lr, weight_decay=weight_decay)
+
     return train_acc, train_loss, val_acc, val_loss
 
 
@@ -741,6 +665,34 @@ def plot_graphs(name_of_model, train_acc, train_loss, val_acc, val_loss, n_epoch
     # plt.show()
 
 
+def plot_test_graphs(test_acc_arr, test_loss_arr, model_name, n_epochs=20):
+    dir_path = ("plots") + os.sep
+    epoch_numbers = list(range(n_epochs))
+    epoch_numbers = list(map(add, epoch_numbers, [1]*n_epochs))
+
+    plt.title("Test accuracy on " + model_name)
+    plt.plot(epoch_numbers, test_acc_arr, label="Test Accuracy")
+    plt.xticks(epoch_numbers)
+    plt.xlabel("Epoch number")
+    plt.ylabel("Accuracy rates")
+    plt.legend()
+    plt.grid()
+    plt.savefig(dir_path + model_name + "_TEST_accuracy")
+    plt.clf()  # clears the plot
+    # plt.show()
+
+    plt.title("Test loss on " + model_name)
+    plt.plot(epoch_numbers, test_loss_arr, label="Test Loss")
+    plt.xticks(epoch_numbers)
+    plt.xlabel("Epoch number")
+    plt.ylabel("Loss rates")
+    plt.legend()
+    plt.grid()
+    plt.savefig(dir_path + model_name + "_TEST_loss")
+    plt.clf()  # clears the plot
+    # plt.show()
+
+
 def Q1(lr, weights_array, n_epochs):
     """Plots graphs for accuracy and loss for each w_decay."""
     for w_dec in weights_array:
@@ -752,15 +704,19 @@ def Q1(lr, weights_array, n_epochs):
         plot_graphs("Log Linear with ONEHOT", train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr, n_epochs, w_dec,
                     lr, "Q1")
 
+        # plot_test_graphs(test_acc_arr, test_loss_arr,
+        #                  model_name="One Hot with weight decay " + str(w_dec), n_epochs=n_epochs)
+
 
 def Q2(lr, weights_array, n_epochs):
     """Handles run of the w2v model.
-    
+
     Arguments:
         lr {[type]} -- [description]
         weights_array {[type]} -- [description]
         n_epochs {[type]} -- [description]
     """
+    model_name = "Word to Vector"
     for w_dec in weights_array:
         print(str(w_dec) + " Q2")
         train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr = train_log_linear_with_w2v(
@@ -768,32 +724,29 @@ def Q2(lr, weights_array, n_epochs):
         plot_graphs("Log Linear with W2V", train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr, n_epochs, w_dec, lr,
                     "Q2")
 
+        # plot_test_graphs(test_acc_arr, test_loss_arr, model_name=model_name +
+        #                  " with weight decay " + str(w_dec), n_epochs=n_epochs)
+
 
 def Q3():
     lr = 0.001
-    n_epochs = 4
+    n_epochs = 2
     w_dec = 0.0001
     print(str(w_dec) + " Q3")
-
     train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr = train_lstm_with_w2v()
     plot_graphs("LSTM with W2V", train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr, n_epochs, w_dec, lr,
                 "Q3")
+    # plot_test_graphs(test_acc_arr, test_loss_arr,
+    #                  model_name="LSTM with W2V", n_epochs=n_epochs)
 
 
 def main():
     weights_array = [0, 0.0001, 0.001]
-    n_epochs = 5
+    n_epochs = 20
     lr = 0.01
-    # Q1(lr=lr, weights_array=weights_array, n_epochs=n_epochs)
-
+    Q1(lr=lr, weights_array=weights_array, n_epochs=n_epochs)
     # Q2(lr=lr, weights_array=weights_array, n_epochs=n_epochs)
-
-    Q3()
-
-    # for wd in weight_decays:
-    #     train_log_linear_with_one_hot(lr=lr1, weight_decay=wd, n_epochs=20)
-    # train_log_linear_with_w2v()
-    # train_lstm_with_w2v()
+    # Q3()
 
 
 if __name__ == '__main__':
