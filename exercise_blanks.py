@@ -166,14 +166,10 @@ def average_one_hots(sent, word_to_ind):
     :param word_to_ind: a mapping between words to indices
     :return:
     """
-    # size = len(word_to_ind)
     avg = np.zeros(len(word_to_ind))
-    # sent_text = sent.text
     for word in sent.text:
         word_index = word_to_ind[word]
         avg[word_index] += 1
-        # avg += get_one_hot(len(word_to_ind), word_to_ind[word])
-
     avg = avg/len(sent.text)
     return avg
 
@@ -186,8 +182,6 @@ def get_word_to_ind(words_list):
     :return: the dictionary mapping words to the index
     """
     word_to_ind = {}
-    # words_set = set(words_list)
-    # TODO do we regard upper/lower case letters?
     for i in range(len(words_list)):
         word_to_ind[words_list[i]] = i
     return word_to_ind
@@ -488,10 +482,8 @@ def train_epoch(model, data_iterator, optimizer, criterion):
     for x, y_label in tqdm(data_iterator):
         x = x.float()
         y_label = y_label.reshape(len(y_label), 1).double()
-        y_forward = model(x) # TODO BUG HERE - y_forward becomes vector of zeros
-        #############################
+        y_forward = model(x)
         y_p = model.predict(y_forward).double()
-
         y_predictions.append(y_p)
         # compute the loss
         loss = criterion(y_forward, y_label)  # CRITERION USES SIGMOID
@@ -574,26 +566,26 @@ def train_model(model, data_manager, n_epochs, lr, weight_decay=0.):
     train_iterator = data_manager.get_torch_iterator(data_subset=TRAIN)
     val_iterator = data_manager.get_torch_iterator(data_subset=VAL)
     for epoch in (range(n_epochs)):
+        # train
         avg_train_loss, avg_train_acc = train_epoch(
             model=model, data_iterator=train_iterator, optimizer=optimizer, criterion=criterion)
         train_acc_arr.append(avg_train_acc)
         train_loss_arr.append(avg_train_loss)
 
-        # Validation        TODO is the validation in the same epoch loop or another?
+        # Validation
         avg_val_loss, avg_val_acc = evaluate(model=model, data_iterator=val_iterator, criterion=criterion)
-        # (model, data_manager.get_torch_iterator(data_subset=VAL), optimizer, criterion)
         val_acc_arr.append(avg_val_acc)
         val_loss_arr.append(avg_val_loss)
 
+    # print("Epoch ", epoch, " accuracy:", train_acc_arr)
     return train_acc_arr, train_loss_arr, val_acc_arr, val_loss_arr
 
 
 def train_log_linear_with_one_hot(lr, n_epochs, weight_decay):
     """
     """
-    # get data
-    size = 64
-    data_manager = DataManager(batch_size=size)
+    # initialize data manager
+    data_manager = DataManager(batch_size=BATCH_SIZE)
     # test_iterator = DataManager(batch_size=size).get_torch_iterator(data_subset=TEST)
 
     embedding_dimension = len(data_manager.sentiment_dataset.get_word_counts())
@@ -719,13 +711,13 @@ def Q3():
 def main():
     weights_array = [0, 0.0001, 0.001]
     n_epochs = 7
-    lr = 0.0001
-    Q1(lr=lr, weights_array=weights_array, n_epochs=n_epochs)
+    lr = 0.01
+    # Q1(lr=lr, weights_array=weights_array, n_epochs=n_epochs)
 
-    # Q2(lr, weights_array, n_epochs)
+    Q2(lr, weights_array, n_epochs)
 
     # Q3()
-
+    
     # for wd in weight_decays:
     #     train_log_linear_with_one_hot(lr=lr1, weight_decay=wd, n_epochs=20)
     # train_log_linear_with_w2v()
